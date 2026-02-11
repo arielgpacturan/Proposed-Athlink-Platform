@@ -1,0 +1,1227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>AthLink — Sponsor × Athlete Intelligence</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+<style>
+html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#06080D}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useRef, useMemo, useCallback } = React;
+
+// ─── EmailJS Configuration ────────────────────
+// To enable REAL email delivery:
+// 1. Go to https://www.emailjs.com and create a free account
+// 2. Add an email service (Gmail, Outlook, etc.)
+// 3. Create an email template with variables: {{to_email}}, {{code}}, {{subject}}, {{message}}
+// 4. Replace the IDs below with your own
+const EMAILJS_PUBLIC_KEY = "YOUR_PUBLIC_KEY";     // Replace with your EmailJS public key
+const EMAILJS_SERVICE_ID = "YOUR_SERVICE_ID";     // Replace with your EmailJS service ID
+const EMAILJS_TEMPLATE_ID = "YOUR_TEMPLATE_ID";   // Replace with your EmailJS template ID
+
+// Initialize EmailJS
+try { if (typeof emailjs !== "undefined") emailjs.init(EMAILJS_PUBLIC_KEY); } catch(e) {}
+
+const sendEmailCode = async (toEmail, code, purpose) => {
+  const subject = purpose === "verify" ? "AthLink — Verify Your Email" : "AthLink — Password Reset Code";
+  const message = purpose === "verify"
+    ? `Welcome to AthLink! Your email verification code is: ${code}. Enter this code to complete your registration.`
+    : `Your password reset code is: ${code}. Enter this code to reset your AthLink password. If you didn't request this, ignore this email.`;
+
+  // Try to send via EmailJS
+  if (typeof emailjs !== "undefined" && EMAILJS_PUBLIC_KEY !== "YOUR_PUBLIC_KEY") {
+    try {
+      await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
+        to_email: toEmail,
+        code: code,
+        subject: subject,
+        message: message,
+      });
+      return { sent: true, method: "email" };
+    } catch (err) {
+      console.log("EmailJS send failed:", err);
+      return { sent: false, method: "demo" };
+    }
+  }
+  // Fallback: show code on screen (demo mode)
+  return { sent: false, method: "demo" };
+};
+
+const LOGO_B64 = "/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEAAAHIAAAAAAQwAABtbnRyUkdCIFhZWiAH4AABAAEAAAAAAABhY3NwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAA9tYAAQAAAADTLQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAlkZXNjAAAA8AAAACRyWFlaAAABFAAAABRnWFlaAAABKAAAABRiWFlaAAABPAAAABR3dHB0AAABUAAAABRyVFJDAAABZAAAAChnVFJDAAABZAAAAChiVFJDAAABZAAAAChjcHJ0AAABjAAAADxtbHVjAAAAAAAAAAEAAAAMZW5VUwAAAAgAAAAcAHMAUgBHAEJYWVogAAAAAAAAb6IAADj1AAADkFhZWiAAAAAAAABimQAAt4UAABjaWFlaIAAAAAAAACSgAAAPhAAAts9YWVogAAAAAAAA9tYAAQAAAADTLXBhcmEAAAAAAAQAAAACZmYAAPKnAAANWQAAE9AAAApbAAAAAAAAAABtbHVjAAAAAAAAAAEAAAAMZW5VUwAAACAAAAAcAEcAbwBvAGcAbABlACAASQBuAGMALgAgADIAMAAxADb/2wBDAAUDBAQEAwUEBAQFBQUGBwwIBwcHBw8LCwkMEQ8SEhEPERETFhwXExQaFRERGCEYGh0dHx8fExciJCIeJBweHx7/2wBDAQUFBQcGBw4ICA4eFBEUHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh7/wAARCADvAPwDASIAAhEBAxEB/8QAHAABAAICAwEAAAAAAAAAAAAAAAcIAQYEBQkC/8QAQRAAAQMEAQMCAwQGBA8AAAAAAAECAwQFBhEHEiExCFETFEEJImGBFRYyUnGRJTNysRcYJ0JDVGJjc4KSoaLS4v/EABQBAQAAAAAAAAAAAAAAAAAAAAD/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwC5YAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAF8AY6hvtsgb1b803jiW32ZmPU1vqbhXSOWRlYxzmpEiL3RGuau9kM8a+r3OLxndmtV/tePx22sqmwTvgglbIiO7JpVkVPKp9ALwAw1UVqKi7RfqZAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAca61cdBbKqtlejGQROkVV8JpNgeefrxyf9Oc2y22ORHwWinZTsVF2nUqI56fk5VQgOiqJaSsgqoF6ZYZGyMX2c1dp/cdvyBfZMmza9ZBIq7uFbLUIirvSOeqon5b0dEB638TX6LJuNcfvsUnWlVQxq52/L2p0u/8mqbQVv8As/sp/THEM9jml3PZ6x0bGe0TkRzV/wCpXlkAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAw7waHz5Feqvie/W/Ho2y3KsplghRX9Old9dm+qUizKozL1Bc/3bBaPIZrPj1p6mrGx6tRUb5VWp+05V3532QCKLB6eOQKm+0NLcaGmpqOWojZPN8y3UbFciOd+SbJV9THpxVKyz3DjC0U3yboFjrY451VqSN1p23Kvn7xr/KfAWC8c3S1W++5peHVV0d0wfBpkcm1XXdddu58SY7e8F5PpeHMkvc15xm/RNWFXPVVplc1VjkjRf2HIukXWtoqoBIXolwTPcBzi6R3u2JBbLjSIjnpMjkR7FVWp29+pS37d67lF+VOHMw4Gs8Gd4lnFdPDTVDGzxOerFXa/VE7Ob27opb/AIjyr9deObJkzo0jlrqVkkrUTSJJr72vw3sDagAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABh3gqHzJxTnOLcs1PJPENyo5Kms2tTRfMMY9rtIjk05URWrpF8p32Woy+6x2LFrpeJXta2jpZJtr421qqn/fR5Q3fK8gvGRVlWy83Jq1tW97WpUvRE63qqIib/ECzl8wvmfmmy/LZrj7bbe7c9ZrXcWOibA9ETvE/oe5UXyqKiL3148nXT0/qcprpS1NZx9a7rcbe1scFwqKaGWXTeyfe+Im/5FuOGLJPj3F2O2upklkqYqCJah0j1c5ZVaiv7r38qpt+gKQX2w+ozmOSnx3OmUFiszJ0fO50kcbVVPdrHOVVTfbt9S4eA2K3Yxh9sx+1SNlpKCnZAyRFRevpREVy6+q62UF9aNNfsV5yuPy13uNPSXKGOshjjqnta1FToVE0vuxV/MnX7PfMKq9YPd7BcayWpqaCq+JGssivd8N/de6/7SgWiAQAAAAAAAAAAAAAAAAAAAAAAAAAACJPVXyJNxzxbUXC3VCx3erkSCh15R6+Xa+qJ2/mBLe09wUv4F5x5Ci5etWOcn1UkdJdoGLTJIzp0srEdE7z4Xqb/DZa/kZl8mwi6R4w9W3h0KfJuR2tP6k+vtrYGwgoxyvmnqW4ztdLccmvlHHDVSLHGsS9S7TW/wC9Db+MZ/Uzka43kVTdqWbHqyemqJkY/pkdTq5qu7f2dgTj6kLFlWT8S3XHcPpWVFxuHREqOmbEjWdSOcu3Kif5qJ+ZUPjr0qcn02d2afIrLSRWiKrY+rkbXxPVrEXa/dR21JX9X/KWaYDyBjtvx28vo6S4RbqWu7omnNTae3Zyk11uc44nH7po8wtSV36PR/WlfF8RJOjfv52BICJ2Tx+Rkq76J+Tcy5EuV9/Wq7OrG0cTVhYjdIiqqd19/J1mecp5zbPVbR4JSXuRlknqI+qL66VHKqIvt2QDZfWjw1kvJkdiuGH0EFVcaP4kVQkk7ItxrpW93Km+/Uar6QuHeU+M+Rpq7I7PT01oraR0VRIyuikVqptzfutcqr95EQt0nhCHvV1ld+wniOoyHHK99HXQVMLGuTuio57WrtP4KBMCGSJ/S3kl6zLh6lv9/uElTX1UkjXyeNImta9vJUe9eo3le15tdKdLxJU2233GSF7Ej/0bZHIiK76KqJ5A9EAVh5v50fWcFW/O+PLw6lqX1LIqiJe7onLrqY5PdF33N/xvJ75V+lqDL57hK68y2X5x1Rvuknnt+HbwBL4Kreljmq43XEMlyjknI2pTW57Wxuf2RNptURPKqpzuKMr5N5hz2uyCzXKpx/j+Kbpi+I3qmnRvZUZ7bVO/t+OgLNg+Y06WI3au0nlfKn0AAAAAAAAAAAAAAAABh3goz6jLvfeWvUNT4nitt/TNLjjUVaZHqjJHovVI5VT+LU/5S8zkRzVa5EVFTSop0NjwvErHc57pZsbtNvrp9/GqKakZHI/a7XbkTa7UCk3qgtPKF5o6DNbzgtNj/wCg2MZ8zRyKqtaip09l8aXXf8C2np4zqHkLiy135HtWqSNIKxiL+zK1E2bzd7ZbrxbpbddaKnrqOZOmSCeNHsensqL2U4eM4xjuM08tPjtjt9phlcjpI6OnbE1yp4VUaibArX9o0qfqDjqb7/Oy9vyYTT6cV/yG4fpUX+iaf6/7tDacnxXGsnjijyKxW67MhVVibWU7ZUYq+VTqRdHOtFst1nt0VutVFT0VHCnTFBBGjGMT2RE7IBSf7QqKKq5OxGmev3ZIHMfpe6I57EN2q/SZxpFhDr2lxv3xkoEqNLUR9PV0dX7njZYzIsHw7Iq5ldfsYtF0qmJ0slq6Rkr2p+CuRVQ7aS22+S2LbJKOB1EsfwlgVidHRrXTrxr8AKbfZuL/AEjlCKqf1TO35oarzzfLfjfrNgv1zc9tFRTRSTOY3qciacnZPzLv4zhWI4zUSVGPY1abTLK3pe+jpGRK5PZelE2cO88b4BebhLcLthlhrqyVdyT1FBHI9y/i5U2oEXO9WvD/AH1X3Ve3+p//AEdV6yL5R5J6WG36i6m01xdR1MKPTTuh72OTafwUlpeIuLlRU/wfYz39rZD/AOp3NdhuK1+P0tgr7Bbqu10jGsgpJ6dskcaNTTdNVNJpEQCLfRI5E9Ptr7p2lk3+HggX0s47Zss5h5LsN8pI6qiq5J2vY7/jS6VPZU9y69hx6x2G3LbrLaaK3Ubt7gpoWxs7+fuomjhWLCMQsNzkudlxm0W6tl38SopqRkcj9rtduRNr3A85/UPxZkPEd5ntLaqoqMauMvxKSXemv0u0a9PHWmvP11+Rb/D3J/iT0S7RE/Vpdrvx2UmHJsWxvJoI4MhsVuu0UTuqNlZTtla1fdEci6U+4cbsEGPrj8NmoI7QrPh/JNgakPT+70a1r8APPb0t8Nu5Yor2ytvdRRW2ib9yniX+snVPuuXfbSa9v5Ejek7O7lxfyPX8PZpJ8GB9UsdK9y6bFNvtpf3X/T+0W8xjD8VxhZVx3HrXaVm18T5OlZF168b6UTZw7tx3gl2uz7tdMPsdbcHqjnVM9DG+RVTwvUqb7AbO3XlF2imTDGNYxGMajWtTSIieEMgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB//2Q==";
+const LOGO = `data:image/png;base64,${LOGO_B64}`;
+
+const SPORTS = ["Swimming","Track & Field","Boxing","Gymnastics","Cycling","Alpine Skiing","Basketball","Tennis","Surfing","MMA","Volleyball","Rowing"];
+const INDUSTRIES = ["Health & Nutrition","Sportswear & Apparel","Technology","Automotive","Wellness & Lifestyle","Outdoor & Adventure","Energy Drinks","Luxury Brands","Media & Entertainment","Finance"];
+const VALUES = ["Sustainability","Mental Health","Youth Empowerment","Diversity & Inclusion","Community Impact","Innovation","Luxury & Premium","Adventure","Health & Fitness","Education"];
+const LEVELS = ["Amateur","Semi-Pro","Professional","Elite","Olympic"];
+
+const ATHLETES = [
+  { id:"a1", type:"athlete", name:"Maya Chen", sport:"Swimming", level:"Olympic", country:"USA", av:"🏊‍♀️", bio:"Two-time Olympic medalist. Passionate about youth swimming programs and mental health awareness.", achievements:["2024 Olympic Gold","World Record 200m Butterfly","NCAA Champion"], goals:"2028 LA Olympics — Multiple Gold", values:["Mental Health","Youth Empowerment","Health & Fitness"], socials:{ig:385000,tt:890000,x:120000,yt:245000}, eng:4.8, growth:12.3, ask:"$10K-25K/yr", verified:true, links:{ig:"@mayachen_swim",tt:"@mayachen",yt:"Maya Chen Swimming",web:"mayachen.com"} },
+  { id:"a2", type:"athlete", name:"James Okafor", sport:"Track & Field", level:"Professional", country:"Nigeria", av:"🏃‍♂️", bio:"Fastest man in Africa. Using my platform to inspire the next generation and promote education.", achievements:["Commonwealth Gold","Diamond League Winner","African Record"], goals:"Break 9.8s, 2028 Olympics podium", values:["Youth Empowerment","Education","Community Impact"], socials:{ig:290000,tt:520000,x:85000,yt:180000}, eng:5.2, growth:18.7, ask:"$20K-50K/yr", verified:true },
+  { id:"a3", type:"athlete", name:"Sofia Andersson", sport:"Alpine Skiing", level:"Elite", country:"Sweden", av:"⛷️", bio:"Living on the edge at 130km/h. Environmental sustainability advocate in winter sports.", achievements:["World Cup Podium x3","Junior World Champion","Swedish AOTY"], goals:"Overall World Cup title, 2026 Milano Olympics", values:["Sustainability","Adventure","Health & Fitness"], socials:{ig:210000,tt:430000,x:65000,yt:95000}, eng:6.1, growth:22.1, ask:"$15K-30K/yr", verified:true },
+  { id:"a4", type:"athlete", name:"Diego Martinez", sport:"Boxing", level:"Professional", country:"Mexico", av:"🥊", bio:"From Guadalajara streets to world champion. Fighting for my community every round.", achievements:["WBC Lightweight Champion","30-1 Record","Ring Magazine Top 10"], goals:"Unify lightweight, youth boxing foundation", values:["Community Impact","Youth Empowerment","Innovation"], socials:{ig:580000,tt:1200000,x:190000,yt:420000}, eng:3.9, growth:8.4, ask:"$40K-100K/yr", verified:true },
+  { id:"a5", type:"athlete", name:"Aisha Patel", sport:"Gymnastics", level:"Olympic", country:"UK", av:"🤸‍♀️", bio:"Defying gravity and expectations. Mental health advocate, proud South Asian representation.", achievements:["European Champion","Olympic Bronze","British Record"], goals:"2028 All-Around Gold, activewear line", values:["Mental Health","Diversity & Inclusion","Health & Fitness"], socials:{ig:480000,tt:1500000,x:140000,yt:310000}, eng:7.3, growth:28.5, ask:"$25K-60K/yr", verified:true },
+  { id:"a6", type:"athlete", name:"Luca Rossi", sport:"Cycling", level:"Professional", country:"Italy", av:"🚴‍♂️", bio:"Climbing mountains on two wheels. Nutrition nerd connecting fans with endurance sports.", achievements:["Giro Stage Winner x2","National Champion","Tour Top 10"], goals:"Grand Tour podium, nutrition brand", values:["Health & Fitness","Sustainability","Adventure"], socials:{ig:250000,tt:340000,x:95000,yt:175000}, eng:4.5, growth:9.8, ask:"$12K-28K/yr", verified:true },
+  { id:"a7", type:"athlete", name:"Keiko Tanaka", sport:"Tennis", level:"Professional", country:"Japan", av:"🎾", bio:"WTA Top 20 bringing Japanese precision to world tennis. Tech enthusiast and culture connector.", achievements:["WTA Top 20","AO Quarterfinal","Fed Cup Winner"], goals:"Grand Slam semifinal, tech investments", values:["Innovation","Education","Diversity & Inclusion"], socials:{ig:320000,tt:670000,x:180000,yt:220000}, eng:5.8, growth:15.2, ask:"$30K-70K/yr", verified:true },
+  { id:"a8", type:"athlete", name:"Marcus Williams", sport:"Basketball", level:"Professional", country:"USA", av:"🏀", bio:"NBA G-League standout. Community basketball camps and sneaker culture advocate.", achievements:["G-League All-Star","NCAA Final Four","Dunk Contest Winner"], goals:"NBA roster, community academy", values:["Community Impact","Youth Empowerment","Education"], socials:{ig:195000,tt:410000,x:88000,yt:130000}, eng:6.4, growth:31.2, ask:"$8K-20K/yr", verified:true },
+  { id:"a9", type:"athlete", name:"Zara Nielsen", sport:"Surfing", level:"Elite", country:"Australia", av:"🏄‍♀️", bio:"WSL competitor and ocean conservation activist. Every wave tells a story.", achievements:["WSL Top 15","National Champion","Ocean Ambassador"], goals:"WSL title, ocean cleanup foundation", values:["Sustainability","Adventure","Community Impact"], socials:{ig:340000,tt:780000,x:95000,yt:200000}, eng:5.9, growth:19.3, ask:"$15K-35K/yr", verified:true },
+  { id:"a10", type:"athlete", name:"Tomás Silva", sport:"MMA", level:"Professional", country:"Brazil", av:"🥋", bio:"UFC contender fusing discipline with creativity. Martial arts philosophy meets modern athletics.", achievements:["UFC Top 10","Bellator Champion","BJJ Black Belt"], goals:"UFC title shot, martial arts academy", values:["Education","Health & Fitness","Youth Empowerment"], socials:{ig:420000,tt:950000,x:160000,yt:280000}, eng:4.2, growth:14.8, ask:"$20K-45K/yr", verified:true },
+];
+
+const SPONSORS = [
+  { id:"s1", type:"sponsor", name:"VitalEdge Nutrition", ind:"Health & Nutrition", logo:"🧬", bio:"Leading sports nutrition brand seeking authentic athlete partnerships.", budget:"$50K-200K/year", values:["Health & Fitness","Innovation","Sustainability"], looking:["High engagement","Fitness creators","Olympic-level"], deals:12, verified:true, links:{ig:"@vitaledge",x:"@vitaledge_sports",web:"vitaledge.com"} },
+  { id:"s2", type:"sponsor", name:"UrbanPulse Apparel", ind:"Sportswear & Apparel", logo:"👟", bio:"Streetwear meets athletics. Athletes who bridge sports and culture.", budget:"$100K-500K/year", values:["Community Impact","Youth Empowerment","Diversity & Inclusion"], looking:["Cultural influence","Combat/urban sports","TikTok presence"], deals:8, verified:true },
+  { id:"s3", type:"sponsor", name:"GreenPeak Outdoors", ind:"Outdoor & Adventure", logo:"🏔️", bio:"Sustainable outdoor gear for the conscious adventurer.", budget:"$25K-150K/year", values:["Sustainability","Adventure","Health & Fitness"], looking:["Winter/outdoor sports","Eco advocates","European reach"], deals:15, verified:true },
+  { id:"s4", type:"sponsor", name:"MindSpace Wellness", ind:"Wellness & Lifestyle", logo:"🧠", bio:"Mental wellness tech. Peak performance starts with mental health.", budget:"$75K-300K/year", values:["Mental Health","Diversity & Inclusion","Innovation"], looking:["Mental health advocates","Female athletes","High engagement"], deals:6, verified:true },
+  { id:"s5", type:"sponsor", name:"TechVelocity", ind:"Technology", logo:"⚡", bio:"Wearable tech and performance analytics for the modern athlete.", budget:"$30K-120K/year", values:["Innovation","Health & Fitness","Education"], looking:["Tech enthusiasts","Data-driven sports","Content creators"], deals:4, verified:true },
+  { id:"s6", type:"sponsor", name:"Crown Automotive", ind:"Automotive", logo:"🏎️", bio:"Luxury electric vehicles seeking elite athletes who embody precision.", budget:"$200K-1M/year", values:["Luxury & Premium","Sustainability","Innovation"], looking:["Elite/Olympic level","Premium alignment","Global reach"], deals:3, verified:true },
+];
+
+const fmt = n => { if(n>=1e6) return (n/1e6).toFixed(1)+"M"; if(n>=1e3) return (n/1e3).toFixed(0)+"K"; return n+""; };
+const reach = s => Object.values(s).reduce((a,b)=>a+b,0);
+
+function matchScore(athlete, sponsorVals) {
+  let s = 0;
+  const shared = athlete.values.filter(v => sponsorVals.includes(v));
+  s += (shared.length / Math.max(athlete.values.length, sponsorVals.length)) * 35;
+  s += Math.min(athlete.eng / 8, 1) * 20;
+  s += Math.min(athlete.growth / 30, 1) * 10;
+  s += Math.min(reach(athlete.socials) / 2e6, 1) * 15;
+  const lv = {Amateur:2,"Semi-Pro":5,Professional:8,Elite:9,Olympic:10};
+  s += (lv[athlete.level]||5) * 1.5;
+  if(athlete.verified) s += 5;
+  return Math.min(Math.round(s), 99);
+}
+
+function matchReasons(athlete, sponsorVals) {
+  const r = [];
+  const shared = athlete.values.filter(v => sponsorVals.includes(v));
+  if(shared.length) r.push(`Shared values: ${shared.join(", ")}`);
+  if(athlete.eng > 5) r.push(`High engagement (${athlete.eng}%)`);
+  if(athlete.growth > 15) r.push(`Fast growth (+${athlete.growth}%/mo)`);
+  const tot = reach(athlete.socials);
+  if(tot > 1e6) r.push(`${fmt(tot)} total followers`);
+  if(athlete.verified) r.push("Verified profile");
+  return r.slice(0, 3);
+}
+
+// ─── Password Validation ────────────────────
+const PW_MIN = 12;
+function validatePw(pw) {
+  const checks = { length: pw.length >= PW_MIN, upper: /[A-Z]/.test(pw), lower: /[a-z]/.test(pw), number: /[0-9]/.test(pw), symbol: /[^A-Za-z0-9]/.test(pw) };
+  const met = Object.values(checks).filter(Boolean).length;
+  checks.valid = checks.length && checks.upper && checks.lower && checks.number && checks.symbol;
+  checks.strength = met <= 2 ? "weak" : met <= 3 ? "fair" : met <= 4 ? "good" : "strong";
+  return checks;
+}
+const strColor = { weak: "#FF6B6B", fair: "#FFB800", good: "#00B8D4", strong: "#00E68A" };
+const strPct = { weak: 20, fair: 40, good: 70, strong: 100 };
+
+// ─── Link Tree ──────────────────────────────
+const PLAT = { ig:{label:"Instagram",icon:"📸",color:"#E1306C"}, tt:{label:"TikTok",icon:"🎵",color:"#ff0050"}, x:{label:"X / Twitter",icon:"𝕏",color:"#1DA1F2"}, yt:{label:"YouTube",icon:"▶️",color:"#FF0000"}, web:{label:"Website",icon:"🌐",color:"#00E68A"}, linkedin:{label:"LinkedIn",icon:"💼",color:"#0077B5"} };
+function LinkTree({ links }) {
+  if (!links || Object.keys(links).length === 0) return null;
+  return (
+    <div style={{ marginBottom: 18 }}>
+      <div style={{ fontSize: 10, color: "rgba(255,255,255,0.25)", fontWeight: 700, textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 8 }}>🔗 Social Links</div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+        {Object.entries(links).map(([k, handle]) => { const m = PLAT[k]; if (!m || !handle) return null; return (
+          <div key={k} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: 10, background: `${m.color}10`, border: `1px solid ${m.color}25`, transition: "all 0.2s" }}>
+            <span style={{ fontSize: 15, width: 20, textAlign: "center" }}>{m.icon}</span>
+            <div style={{ flex: 1 }}><div style={{ fontSize: 10, fontWeight: 700, color: m.color }}>{m.label}</div><div style={{ fontSize: 11, color: "rgba(255,255,255,0.55)" }}>{handle}</div></div>
+            <span style={{ fontSize: 11, color: "rgba(255,255,255,0.2)" }}>↗</span>
+          </div>); })}
+      </div>
+    </div>
+  );
+}
+
+// ─── Match Ring ────────────────────────────────
+const Ring = ({ score, size = 48 }) => {
+  const r = (size - 6) / 2, c = 2 * Math.PI * r, off = c - (score / 100) * c;
+  const col = score >= 85 ? "#00E68A" : score >= 70 ? "#00B8D4" : score >= 55 ? "#FFB800" : "#FF6B6B";
+  return (
+    <svg width={size} height={size} style={{ transform: "rotate(-90deg)" }}>
+      <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="3" />
+      <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={col} strokeWidth="3" strokeDasharray={c} strokeDashoffset={off} strokeLinecap="round" style={{ transition: "stroke-dashoffset 1.2s cubic-bezier(.4,0,.2,1)" }} />
+      <text x={size/2} y={size/2} textAnchor="middle" dominantBaseline="central" fill="white" fontSize={size * .26} fontWeight="700" style={{ transform: "rotate(90deg)", transformOrigin: "center" }}>{score}</text>
+    </svg>
+  );
+};
+
+const Badge = ({ children, color = "#00E68A" }) => (
+  <span style={{ display: "inline-flex", padding: "3px 10px", borderRadius: 20, fontSize: 11, fontWeight: 600, background: `${color}18`, color, letterSpacing: "0.01em" }}>{children}</span>
+);
+
+// ─── Chat Input ─────────────────────────────────
+function ChatInput({ onSend }) {
+  const [text, setText] = useState("");
+  const send = () => { if(text.trim()) { onSend(text.trim()); setText(""); } };
+  return (
+    <div style={{ display: "flex", gap: 8, paddingTop: 12, borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+      <input value={text} onChange={e => setText(e.target.value)} onKeyDown={e => e.key === "Enter" && send()} placeholder="Type a message..." style={{ flex: 1, padding: "12px 16px", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12, color: "#E8E8EC", fontSize: 14, fontFamily: "inherit", outline: "none" }} />
+      <button onClick={send} style={{ width: 44, height: 44, borderRadius: 12, border: "none", background: "linear-gradient(135deg,#00E68A,#00B8D4)", color: "#06080D", fontSize: 18, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>→</button>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════
+// MAIN APP
+// ═══════════════════════════════════════════════════
+function AthLink() {
+  const [screen, setScreen] = useState("splash");
+  const [authMode, setAuthMode] = useState("signup");
+  const [authUser, setAuthUser] = useState("");
+  const [authPw, setAuthPw] = useState("");
+  const [authPwShow, setAuthPwShow] = useState(false);
+  const [authErr, setAuthErr] = useState("");
+  const [authLoading, setAuthLoading] = useState(false);
+  const [agreedTerms, setAgreedTerms] = useState(false);
+  const [authEmail, setAuthEmail] = useState("");
+  const [emailSent, setEmailSent] = useState(false);
+  const [emailVerified, setEmailVerified] = useState(false);
+  const [verifyCode, setVerifyCode] = useState("");
+  const generatedCode = useRef("");
+  const [username, setUsername] = useState("");
+  const usersRef = useRef({});
+
+  const [userType, setUserType] = useState(null);
+  const [obStep, setObStep] = useState(0);
+  const [tab, setTab] = useState("discover");
+  const [selected, setSelected] = useState(null);
+  const [saved, setSaved] = useState([]);
+  const [chats, setChats] = useState({});
+  const [chatWith, setChatWith] = useState(null);
+  const [toast, setToast] = useState(null);
+  const [typing, setTyping] = useState({});
+  const [swipeIdx, setSwipeIdx] = useState(0);
+  const [swiped, setSwiped] = useState({ liked: [], passed: [] });
+  const [dragX, setDragX] = useState(0);
+  const [dragging, setDragging] = useState(false);
+  const dragRef = useRef(null);
+  const chatEnd = useRef(null);
+
+  const [ob, setOb] = useState({ name: "", sport: "", level: "", industry: "", budget: "", values: [], goals: "" });
+  const [profile, setProfile] = useState({ photo: null, age: "", gender: "", nationality: "", birthdate: "", address: "", email: "", sports: [], accomplishments: [] });
+  const upProf = (k, v) => setProfile(p => ({ ...p, [k]: v }));
+  const [editProfile, setEditProfile] = useState(false);
+  const [newAccomp, setNewAccomp] = useState("");
+  const [botOpen, setBotOpen] = useState(false);
+  const [botMsgs, setBotMsgs] = useState([{ from: "bot", text: "Hey there! I'm Nexis, your AthLink assistant 💚 I can help you find sponsors, optimize your profile, or answer questions about partnerships. What can I do for you?" }]);
+  const [botInput, setBotInput] = useState("");
+  const botEndRef = useRef(null);
+  const fileInputRef = useRef(null);
+  const upOb = (k, v) => setOb(p => ({ ...p, [k]: v }));
+  const toggleVal = v => setOb(p => ({ ...p, values: p.values.includes(v) ? p.values.filter(x => x !== v) : p.values.length < 3 ? [...p.values, v] : p.values }));
+
+  const notify = msg => { setToast(msg); setTimeout(() => setToast(null), 2500); };
+
+  // ─── AUTH ────────────────────────────────────
+  const pwV = validatePw(authPw);
+  const bioType = /Mac|iPhone|iPad/.test(typeof navigator !== "undefined" ? navigator.userAgent : "") ? "Face ID" : "Fingerprint";
+  const validEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(authEmail);
+  const canSubmit = authMode === "login" ? (authUser.length >= 3 && authPw.length >= 1) : (authUser.length >= 3 && pwV.valid && agreedTerms && validEmail && emailVerified);
+
+  const doSignUp = () => {
+    setAuthErr("");
+    if (authUser.length < 3) { setAuthErr("Username must be at least 3 characters"); return; }
+    if (!validEmail) { setAuthErr("Please enter a valid email address"); return; }
+    if (!emailVerified) { setAuthErr("Please verify your email first"); return; }
+    if (!pwV.valid) { setAuthErr("Password doesn't meet all requirements"); return; }
+    if (usersRef.current[authUser]) { setAuthErr("Username already taken"); return; }
+    setAuthLoading(true);
+    setTimeout(() => { usersRef.current[authUser] = { pw: authPw, email: authEmail }; setUsername(authUser); setAuthLoading(false); setAuthPw(""); setAuthEmail(""); setEmailSent(false); setEmailVerified(false); notify("Account created! 🎉"); setScreen("welcome"); }, 600);
+  };
+
+  const [shownCode, setShownCode] = useState("");
+  const [forgotPw, setForgotPw] = useState(false);
+  const [resetEmail, setResetEmail] = useState("");
+  const [resetSent, setResetSent] = useState(false);
+  const [resetCode, setResetCode] = useState("");
+  const [resetVerified, setResetVerified] = useState(false);
+  const [newPw, setNewPw] = useState("");
+  const resetCodeRef = useRef("");
+
+  const [emailMethod, setEmailMethod] = useState("demo");
+
+  const sendVerification = async () => {
+    if (!validEmail) { setAuthErr("Enter a valid email address first"); return; }
+    setAuthErr("");
+    const code = String(Math.floor(100000 + Math.random() * 900000));
+    generatedCode.current = code;
+    setEmailSent(true);
+    setShownCode(code);
+    notify("Sending verification code... 📧");
+    const result = await sendEmailCode(authEmail, code, "verify");
+    setEmailMethod(result.method);
+    if (result.sent) {
+      notify("✅ Verification code sent to your email!");
+      setShownCode(""); // Hide code since it was actually emailed
+    } else {
+      notify("📧 Code generated — enter it below");
+    }
+  };
+
+  const confirmVerify = () => {
+    if (verifyCode === generatedCode.current) { setEmailVerified(true); setAuthErr(""); setShownCode(""); notify("Email verified! ✅"); }
+    else { setAuthErr("Invalid verification code. Try again."); }
+  };
+
+  const [resetMethod, setResetMethod] = useState("demo");
+
+  const sendResetCode = async () => {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(resetEmail)) { setAuthErr("Enter a valid email"); return; }
+    const found = Object.entries(usersRef.current).find(([, v]) => v.email === resetEmail);
+    if (!found) { setAuthErr("No account found with this email"); return; }
+    setAuthErr("");
+    const code = String(Math.floor(100000 + Math.random() * 900000));
+    resetCodeRef.current = code;
+    setResetSent(true);
+    notify("Sending reset code... 📧");
+    const result = await sendEmailCode(resetEmail, code, "reset");
+    setResetMethod(result.method);
+    if (result.sent) {
+      notify("✅ Reset code sent to your email!");
+    } else {
+      notify("📧 Reset code generated — enter it below");
+    }
+  };
+
+  const confirmReset = () => {
+    if (resetCode !== resetCodeRef.current) { setAuthErr("Invalid code"); return; }
+    setResetVerified(true); setAuthErr("");
+  };
+
+  const doResetPw = () => {
+    const npv = validatePw(newPw);
+    if (!npv.valid) { setAuthErr("New password doesn't meet requirements"); return; }
+    const found = Object.entries(usersRef.current).find(([, v]) => v.email === resetEmail);
+    if (found) { usersRef.current[found[0]].pw = newPw; }
+    setForgotPw(false); setResetSent(false); setResetVerified(false); setResetEmail(""); setResetCode(""); setNewPw(""); setAuthErr("");
+    notify("Password reset! Sign in with your new password 🔑");
+  };
+
+  const closeForgot = () => { setForgotPw(false); setResetSent(false); setResetVerified(false); setResetEmail(""); setResetCode(""); setNewPw(""); setAuthErr(""); };
+
+  const doLogin = () => {
+    setAuthErr("");
+    if (!authUser || !authPw) { setAuthErr("Enter username and password"); return; }
+    setAuthLoading(true);
+    setTimeout(() => { const u = usersRef.current[authUser]; if (!u) { setAuthErr("Account not found"); setAuthLoading(false); return; } if (u.pw !== authPw) { setAuthErr("Incorrect password"); setAuthLoading(false); return; } setUsername(authUser); setAuthLoading(false); setAuthPw(""); notify("Welcome back! 🙌"); setScreen("welcome"); }, 500);
+  };
+  const doBiometric = () => {
+    setAuthErr(""); setAuthLoading(true);
+    setTimeout(() => { const last = Object.keys(usersRef.current)[0]; if (last) { setUsername(last); setAuthUser(last); setAuthLoading(false); notify("Authenticated! 🔐"); setScreen("welcome"); } else { setAuthErr("No saved account. Sign up first."); setAuthLoading(false); } }, 800);
+  };
+  const doLogout = () => {
+    setScreen("auth"); setAuthMode("login"); setAuthPw(""); setAuthErr(""); setAuthEmail(""); setEmailSent(false); setEmailVerified(false); setVerifyCode(""); setShownCode(""); setForgotPw(false); setResetEmail(""); setResetSent(false); setResetCode(""); setResetVerified(false); setNewPw("");
+    setOb({ name: "", sport: "", level: "", industry: "", budget: "", values: [], goals: "" });
+    setProfile({ photo: null, age: "", gender: "", nationality: "", birthdate: "", address: "", email: "", sports: [], accomplishments: [] });
+    setSaved([]); setChats({}); setChatWith(null); setSwiped({ liked: [], passed: [] }); setUserType(null);
+    setBotMsgs([{ from: "bot", text: "Hey there! I'm Nexis 💚 How can I help?" }]);
+  };
+
+  // Bot auto-scroll
+  useEffect(() => { botEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [botMsgs]);
+
+  // Chatbot response engine
+  const sendBot = () => {
+    const q = botInput.trim(); if (!q) return;
+    setBotMsgs(p => [...p, { from: "user", text: q }]);
+    setBotInput("");
+    setTimeout(() => {
+      const ql = q.toLowerCase();
+      let reply;
+      if (ql.includes("sponsor") || ql.includes("find") || ql.includes("match")) reply = `Based on your profile${ob.values.length ? ` (values: ${ob.values.join(", ")})` : ""}, I'd recommend focusing on sponsors in ${ob.sport || "your sport"} niche. Swipe through Discover to see AI-matched sponsors! Your match scores are based on shared values, engagement rates, and audience alignment.`;
+      else if (ql.includes("profile") || ql.includes("improve") || ql.includes("optimize")) reply = "To boost your profile: 1) Add a professional photo, 2) Fill in all personal details (age, nationality, etc.), 3) Set clear goals, and 4) Keep your social media stats updated. Complete profiles get 3x more sponsor interest!";
+      else if (ql.includes("deal") || ql.includes("negotiat") || ql.includes("contract")) reply = "For sponsorship negotiations: Start with your engagement metrics, be clear about deliverables, and know your market rate. Athletes at your level typically secure deals in the range shown on your profile. Want me to analyze any specific sponsor?";
+      else if (ql.includes("hello") || ql.includes("hi") || ql.includes("hey")) reply = `Hey ${ob.name || "there"}! 👋 I'm here to help with sponsorship matching, profile tips, deal negotiations, or anything AthLink-related. Just ask!`;
+      else if (ql.includes("social") || ql.includes("follower") || ql.includes("engagement")) reply = "Social media is key for sponsorships. Focus on: authentic content, consistent posting (3-5x/week), engaging with followers, and showcasing your training journey. Sponsors love athletes with 3%+ engagement rates!";
+      else if (ql.includes("help") || ql.includes("what can")) reply = "I can help with:\n• Finding ideal sponsors\n• Profile optimization tips\n• Sponsorship negotiation advice\n• Social media growth strategies\n• Understanding your match scores\n• General AthLink questions";
+      else reply = `Great question about "${q.slice(0, 40)}". In the AthLink ecosystem, I'd suggest exploring your Discover tab for AI-curated matches, or updating your profile to attract better sponsors. Need more specific advice?`;
+      setBotMsgs(p => [...p, { from: "bot", text: reply }]);
+    }, 600 + Math.random() * 800);
+  };
+
+  // Photo upload handler
+  const handlePhoto = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => upProf("photo", ev.target.result);
+    reader.readAsDataURL(file);
+  };
+
+  // Splash timer
+  useEffect(() => { if(screen === "splash") { const t = setTimeout(() => setScreen("auth"), 2200); return () => clearTimeout(t); } }, [screen]);
+
+  // Auto scroll chat
+  useEffect(() => { chatEnd.current?.scrollIntoView({ behavior: "smooth" }); }, [chats, chatWith, typing]);
+
+  // Matched profiles
+  const pool = useMemo(() => {
+    const src = userType === "sponsor" ? ATHLETES : SPONSORS;
+    return src.map(p => {
+      const sc = p.type === "athlete" ? matchScore(p, ob.values) : matchScore({ values: ob.values, eng: 5, growth: 15, verified: true, socials: { ig: 1000, tt: 1000, x: 1000, yt: 1000 }, level: ob.level || "Professional" }, p.values);
+      return { ...p, score: sc };
+    }).sort((a, b) => b.score - a.score);
+  }, [userType, ob.values, ob.level]);
+
+  // Swipe pool
+  const swipePool = useMemo(() => pool.filter(p => !swiped.liked.includes(p.id) && !swiped.passed.includes(p.id)), [pool, swiped]);
+  const currentCard = swipePool[0] || null;
+
+  // Swipe handlers
+  const startX = useRef(0);
+  const onDragStart = useCallback((clientX) => { startX.current = clientX; setDragging(true); }, []);
+  const onDragMove = useCallback((clientX) => { if(dragging) setDragX(clientX - startX.current); }, [dragging]);
+  const onDragEnd = useCallback(() => {
+    if(!dragging || !currentCard) return;
+    setDragging(false);
+    if(dragX > 80) {
+      // Liked
+      setSwiped(p => ({ ...p, liked: [...p.liked, currentCard.id] }));
+      const greeting = `Hey ${currentCard.name.split(" ")[0]}! I'd love to explore a partnership. Your profile really stood out!`;
+      setChats(p => ({ ...p, [currentCard.id]: [{ from: "system", text: `Connected with ${currentCard.name}! 🎉`, time: Date.now() }, { from: "me", text: greeting, time: Date.now() + 1 }] }));
+      notify(`Connected with ${currentCard.name}! 🤝`);
+      // Auto reply
+      setTimeout(() => {
+        setTyping(p => ({ ...p, [currentCard.id]: true }));
+        setTimeout(() => {
+          const replies = ["Thanks! I'm really excited about this potential collaboration!", "Great to connect! Your brand values align perfectly with mine.", "Hey! I've been looking for a partnership like this. Let's chat more!", "This is awesome! I think we could create something special together."];
+          setChats(p => ({ ...p, [currentCard.id]: [...(p[currentCard.id] || []), { from: "them", text: replies[Math.floor(Math.random() * replies.length)], time: Date.now() }] }));
+          setTyping(p => ({ ...p, [currentCard.id]: false }));
+        }, 1500 + Math.random() * 2000);
+      }, 800);
+    } else if(dragX < -80) {
+      setSwiped(p => ({ ...p, passed: [...p.passed, currentCard.id] }));
+    }
+    setDragX(0);
+  }, [dragging, dragX, currentCard]);
+
+  const sendMsg = (id, text) => {
+    setChats(p => ({ ...p, [id]: [...(p[id] || []), { from: "me", text, time: Date.now() }] }));
+    setTimeout(() => {
+      setTyping(p => ({ ...p, [id]: true }));
+      setTimeout(() => {
+        const replies = ["That sounds great! When would be a good time to discuss details?", "I love that idea! Let me check my schedule and get back to you.", "Absolutely! I think this partnership could be really impactful.", "Perfect! Let's set up a call this week to iron out the details.", "I'm on board! What's the timeline you're thinking?"];
+        setChats(p => ({ ...p, [id]: [...(p[id] || []), { from: "them", text: replies[Math.floor(Math.random() * replies.length)], time: Date.now() }] }));
+        setTyping(p => ({ ...p, [id]: false }));
+      }, 1500 + Math.random() * 2000);
+    }, 500);
+  };
+
+  const openChat = (profile) => { setChatWith(profile); setTab("messages"); };
+  const toggleSave = (id) => { setSaved(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id]); };
+
+  const C = { bg: "#06080D", card: "rgba(255,255,255,0.025)", border: "rgba(255,255,255,0.06)", accent: "#00E68A", secondary: "#00B8D4", warn: "#FFB800", danger: "#FF6B6B", text: "#E8E8EC", dim: "rgba(255,255,255,0.45)", muted: "rgba(255,255,255,0.25)" };
+
+  // ═══ RENDER ═══
+  return (
+    <div style={{ minHeight: "100vh", maxHeight: "100vh", overflow: "hidden", background: `radial-gradient(ellipse at 20% 0%, rgba(0,230,138,0.04) 0%, transparent 50%), radial-gradient(ellipse at 80% 100%, rgba(0,184,212,0.03) 0%, transparent 50%), ${C.bg}`, color: C.text, fontFamily: "'Outfit', sans-serif", display: "flex", flexDirection: "column", position: "relative" }}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap');
+        *{box-sizing:border-box;margin:0;padding:0}
+        html,body{font-size:17px}
+        ::-webkit-scrollbar{width:4px}::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.08);border-radius:2px}
+        @keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+        @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+        @keyframes scaleIn{from{opacity:0;transform:scale(.92)}to{opacity:1;transform:scale(1)}}
+        @keyframes slideR{from{opacity:0;transform:translateX(-20px)}to{opacity:1;transform:translateX(0)}}
+        @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+        @keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+        @keyframes pulse{0%,100%{opacity:.4}50%{opacity:1}}
+        @keyframes cardIn{from{opacity:0;transform:scale(.95) translateY(10px)}to{opacity:1;transform:scale(1) translateY(0)}}
+        @keyframes dotPulse{0%,80%,100%{transform:scale(.6);opacity:.4}40%{transform:scale(1);opacity:1}}
+        @keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+        .watermark{position:fixed;pointer-events:none;z-index:0;opacity:0.04;filter:invert(1)}
+        .watermark-center{top:50%;left:50%;transform:translate(-50%,-50%);width:88vmin;height:88vmin;object-fit:contain}
+        .watermark-br{bottom:80px;right:20px;width:28vmin;height:28vmin;object-fit:contain;opacity:0.05}
+        .card-hover{transition:all .25s ease}.card-hover:hover{transform:translateY(-2px);box-shadow:0 8px 30px rgba(0,0,0,.3)}
+        .card-hover:active{transform:scale(.98)}
+        input::placeholder{color:rgba(255,255,255,.25)}
+        button{font-family:inherit}
+        input,button,select,textarea{font-size:15px}
+      `}</style>
+
+      {/* Toast */}
+      {toast && <div style={{ position: "fixed", top: 20, left: "50%", transform: "translateX(-50%)", zIndex: 9999, padding: "10px 24px", borderRadius: 12, background: "rgba(0,230,138,0.15)", border: "1px solid rgba(0,230,138,0.25)", backdropFilter: "blur(20px)", color: C.accent, fontSize: 13, fontWeight: 600, animation: "scaleIn 0.3s ease" }}>✓ {toast}</div>}
+
+      {/* ═══ SPLASH ═══ */}
+      {screen === "splash" && (
+        <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column" }}>
+          <div style={{ animation: "scaleIn 1s cubic-bezier(.34,1.56,.64,1) both" }}>
+            <img src={LOGO} alt="AthLink" style={{ height: 120, filter: "invert(1)", marginBottom: 16 }} />
+          </div>
+          <div style={{ animation: "fadeUp 0.8s ease 0.5s both", textAlign: "center" }}>
+            <div style={{ fontSize: 11, color: C.muted, letterSpacing: "0.25em", textTransform: "uppercase" }}>Athlete × Sponsor Intelligence</div>
+          </div>
+          <div style={{ marginTop: 32, width: 100, height: 3, borderRadius: 2, overflow: "hidden", background: "rgba(255,255,255,0.06)", animation: "fadeIn 1s ease 0.8s both" }}>
+            <div style={{ height: "100%", background: "linear-gradient(90deg,#00E68A,#00B8D4)", animation: "shimmer 1.5s linear infinite", backgroundSize: "200% 100%" }} />
+          </div>
+        </div>
+      )}
+
+      {/* ═══ AUTH SCREEN ═══ */}
+      {screen === "auth" && (
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 28, overflowY: "auto" }}>
+          <div style={{ maxWidth: 460, width: "100%", animation: "fadeUp 0.45s ease both" }}>
+            <div style={{ textAlign: "center", marginBottom: 28 }}>
+              <h2 style={{ fontSize: 30, fontWeight: 800, letterSpacing: "-0.03em", marginBottom: 6 }}>{authMode === "login" ? "Welcome Back" : "Create Account"}</h2>
+              <p style={{ color: C.dim, fontSize: 14 }}>{authMode === "login" ? "Sign in to continue" : "Join AthLink — connect with your match"}</p>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              <div>
+                <label style={{ fontSize: 12, color: C.dim, fontWeight: 600, marginBottom: 5, display: "block" }}>Username</label>
+                <div style={{ position: "relative" }}>
+                  <span style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)", fontSize: 15, pointerEvents: "none" }}>👤</span>
+                  <input value={authUser} onChange={e => setAuthUser(e.target.value)} placeholder="Your username" style={{ width: "100%", padding: "14px 14px 14px 44px", background: "rgba(255,255,255,0.035)", border: `1.5px solid ${C.border}`, borderRadius: 10, color: C.text, fontSize: 14, fontFamily: "inherit", outline: "none" }} />
+                </div>
+              </div>
+
+              {/* Email (signup only) */}
+              {authMode === "signup" && (
+                <div>
+                  <label style={{ fontSize: 12, color: C.dim, fontWeight: 600, marginBottom: 5, display: "block" }}>Email Address</label>
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <div style={{ position: "relative", flex: 1 }}>
+                      <span style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)", fontSize: 15, pointerEvents: "none" }}>📧</span>
+                      <input type="email" value={authEmail} onChange={e => { setAuthEmail(e.target.value); setEmailSent(false); setEmailVerified(false); setVerifyCode(""); }} placeholder="your@email.com" disabled={emailVerified} style={{ width: "100%", padding: "14px 14px 14px 44px", background: emailVerified ? "rgba(0,230,138,0.06)" : "rgba(255,255,255,0.035)", border: `1.5px solid ${emailVerified ? C.accent : C.border}`, borderRadius: 10, color: emailVerified ? C.accent : C.text, fontSize: 14, fontFamily: "inherit", outline: "none" }} />
+                    </div>
+                    {!emailVerified && <button onClick={sendVerification} disabled={!validEmail || emailSent} style={{ padding: "0 14px", borderRadius: 10, border: "none", background: validEmail && !emailSent ? "linear-gradient(135deg,#00E68A,#00B8D4)" : "rgba(255,255,255,0.08)", color: validEmail && !emailSent ? "#06080D" : "rgba(255,255,255,0.3)", fontSize: 12, fontWeight: 700, cursor: validEmail && !emailSent ? "pointer" : "default", fontFamily: "inherit", whiteSpace: "nowrap" }}>{emailSent ? "Sent ✓" : "Verify"}</button>}
+                    {emailVerified && <div style={{ display: "flex", alignItems: "center", padding: "0 10px", color: C.accent, fontWeight: 700, fontSize: 14 }}>✓</div>}
+                  </div>
+                  {emailSent && !emailVerified && (
+                    <div style={{ marginTop: 8, animation: "fadeUp 0.3s ease" }}>
+                      <div style={{ background: "rgba(0,230,138,0.08)", border: `1px solid ${C.accent}30`, borderRadius: 10, padding: 12, marginBottom: 8 }}>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: C.accent, marginBottom: 4 }}>📧 Verification email sent to {authEmail}</div>
+                        {emailMethod === "email" ? (
+                          <div style={{ fontSize: 13, color: C.text, textAlign: "center", padding: "10px 0" }}>✅ Check your inbox for the 6-digit verification code</div>
+                        ) : (<>
+                          <div style={{ fontSize: 12, color: C.dim, marginBottom: 6 }}>Your verification code:</div>
+                          <div style={{ fontSize: 28, fontWeight: 800, letterSpacing: "0.3em", color: C.text, textAlign: "center", padding: "8px 0", background: "rgba(0,0,0,0.2)", borderRadius: 8, fontFamily: "monospace" }}>{shownCode}</div>
+                          <div style={{ fontSize: 10, color: C.muted, marginTop: 6, textAlign: "center" }}>To enable real email delivery, configure EmailJS keys in the source code</div>
+                        </>)}
+                      </div>
+                      <div style={{ display: "flex", gap: 6 }}>
+                        <input value={verifyCode} onChange={e => setVerifyCode(e.target.value)} onKeyDown={e => e.key === "Enter" && confirmVerify()} placeholder="Enter 6-digit code" maxLength={6} style={{ flex: 1, padding: "10px 14px", background: "rgba(255,255,255,0.035)", border: `1.5px solid ${C.border}`, borderRadius: 8, color: C.text, fontSize: 14, fontFamily: "inherit", outline: "none", textAlign: "center", letterSpacing: "0.2em" }} />
+                        <button onClick={confirmVerify} style={{ padding: "0 16px", borderRadius: 8, border: "none", background: verifyCode.length === 6 ? "linear-gradient(135deg,#00E68A,#00B8D4)" : "rgba(255,255,255,0.08)", color: verifyCode.length === 6 ? "#06080D" : "rgba(255,255,255,0.3)", fontSize: 12, fontWeight: 700, cursor: verifyCode.length === 6 ? "pointer" : "default", fontFamily: "inherit" }}>Confirm</button>
+                      </div>
+                    </div>
+                  )}
+                  {emailSent && !emailVerified && <div style={{ fontSize: 11, color: C.muted, marginTop: 4 }}>Enter the code above to verify your email</div>}
+                  {emailVerified && <div style={{ fontSize: 11, color: C.accent, marginTop: 4 }}>✓ Email verified successfully</div>}
+                </div>
+              )}
+
+              <div>
+                <label style={{ fontSize: 12, color: C.dim, fontWeight: 600, marginBottom: 5, display: "block" }}>Password</label>
+                <div style={{ position: "relative" }}>
+                  <span style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)", fontSize: 15, pointerEvents: "none" }}>🔒</span>
+                  <input type={authPwShow ? "text" : "password"} value={authPw} onChange={e => setAuthPw(e.target.value)} onKeyDown={e => { if(e.key === "Enter" && canSubmit) { authMode === "login" ? doLogin() : doSignUp(); } }} placeholder={authMode === "login" ? "Your password" : "Min 12 chars, mixed case + symbol"} style={{ width: "100%", padding: "14px 44px 14px 44px", background: "rgba(255,255,255,0.035)", border: `1.5px solid ${C.border}`, borderRadius: 10, color: C.text, fontSize: 14, fontFamily: "inherit", outline: "none" }} />
+                  <button onClick={() => setAuthPwShow(!authPwShow)} style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 14 }}>{authPwShow ? "🙈" : "👁"}</button>
+                </div>
+                {authMode === "signup" && authPw.length > 0 && <>
+                  <div style={{ height: 4, borderRadius: 2, background: "rgba(255,255,255,0.06)", marginTop: 6, overflow: "hidden" }}>
+                    <div style={{ height: "100%", borderRadius: 2, width: `${strPct[pwV.strength]}%`, background: strColor[pwV.strength], transition: "all 0.3s" }} />
+                  </div>
+                  <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 3 }}>
+                    {[{l:"12+ characters",m:pwV.length},{l:"Uppercase letter",m:pwV.upper},{l:"Lowercase letter",m:pwV.lower},{l:"Number",m:pwV.number},{l:"Symbol (!@#$...)",m:pwV.symbol}].map(r => (
+                      <div key={r.l} style={{ fontSize: 11, color: r.m ? C.accent : C.muted, display: "flex", alignItems: "center", gap: 6 }}>{r.m ? "✓" : "○"} {r.l}</div>
+                    ))}
+                  </div>
+                </>}
+              </div>
+              {authErr && <div style={{ padding: "10px 14px", borderRadius: 8, background: `${C.danger}15`, border: `1px solid ${C.danger}30`, color: C.danger, fontSize: 13, fontWeight: 600 }}>✕ {authErr}</div>}
+
+              {/* Terms & Conditions checkbox (signup only) */}
+              {authMode === "signup" && (
+                <label style={{ display: "flex", alignItems: "flex-start", gap: 10, cursor: "pointer", padding: "4px 0" }}>
+                  <div onClick={() => setAgreedTerms(!agreedTerms)} style={{ width: 20, height: 20, minWidth: 20, borderRadius: 5, border: `1.5px solid ${agreedTerms ? C.accent : C.border}`, background: agreedTerms ? `${C.accent}` : "rgba(255,255,255,0.03)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", transition: "all 0.2s", marginTop: 1 }}>
+                    {agreedTerms && <span style={{ color: "#06080D", fontSize: 13, fontWeight: 800, lineHeight: 1 }}>✓</span>}
+                  </div>
+                  <span style={{ fontSize: 12, color: C.dim, lineHeight: 1.5 }}>
+                    I agree to AthLink's <span style={{ color: C.accent, fontWeight: 600 }}>Terms of Service</span> and <span style={{ color: C.accent, fontWeight: 600 }}>Privacy Policy</span>, including secure data handling and biometric authentication consent.
+                  </span>
+                </label>
+              )}
+
+              <button onClick={authMode === "login" ? doLogin : doSignUp} disabled={!canSubmit || authLoading} style={{ width: "100%", padding: "15px 13px", border: "none", borderRadius: 12, fontWeight: 700, fontSize: 14, cursor: canSubmit && !authLoading ? "pointer" : "default", background: canSubmit && !authLoading ? "linear-gradient(135deg,#00E68A,#00B8D4)" : "rgba(255,255,255,0.08)", color: canSubmit && !authLoading ? "#06080D" : "rgba(255,255,255,0.3)", fontFamily: "inherit" }}>
+                {authLoading && <span style={{ display: "inline-block", animation: "spin 1s linear infinite", marginRight: 6 }}>⟳</span>}
+                {authLoading ? (authMode === "login" ? "Signing in..." : "Creating...") : (authMode === "login" ? "Sign In" : "Create Account")}
+              </button>
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}><div style={{ flex: 1, height: 1, background: C.border }} /><span style={{ fontSize: 11, color: C.muted }}>or</span><div style={{ flex: 1, height: 1, background: C.border }} /></div>
+              <button onClick={doBiometric} style={{ width: "100%", padding: "13px", borderRadius: 10, border: `1.5px solid ${C.border}`, background: "rgba(255,255,255,0.02)", color: C.text, fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
+                <span style={{ fontSize: 20 }}>{bioType === "Face ID" ? "🔐" : "👆"}</span> Sign in with {bioType} / Passkey
+              </button>
+            </div>
+            <div style={{ textAlign: "center", marginTop: 20 }}>
+              <button onClick={() => { setAuthMode(authMode === "login" ? "signup" : "login"); setAuthErr(""); setAuthPw(""); setAgreedTerms(false); setAuthEmail(""); setEmailSent(false); setEmailVerified(false); setVerifyCode(""); setShownCode(""); setForgotPw(false); }} style={{ background: "none", border: "none", color: C.secondary, fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+                {authMode === "login" ? "Don't have an account? Sign Up" : "Already have an account? Sign In"}
+              </button>
+              {authMode === "login" && !forgotPw && (
+                <div style={{ marginTop: 8 }}>
+                  <button onClick={() => { setForgotPw(true); setAuthErr(""); }} style={{ background: "none", border: "none", color: C.dim, fontSize: 12, cursor: "pointer", fontFamily: "inherit", textDecoration: "underline" }}>Forgot Password?</button>
+                </div>
+              )}
+            </div>
+
+            {/* ── FORGOT PASSWORD FLOW ── */}
+            {forgotPw && (
+              <div style={{ marginTop: 16, background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: 18, animation: "fadeUp 0.3s ease" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+                  <h3 style={{ fontSize: 16, fontWeight: 700 }}>🔐 Reset Password</h3>
+                  <button onClick={() => { setForgotPw(false); setResetEmail(""); setResetSent(false); setResetCode(""); setResetGenCode(""); setResetVerified(false); setNewPw(""); setAuthErr(""); }} style={{ background: "none", border: "none", color: C.muted, fontSize: 16, cursor: "pointer" }}>✕</button>
+                </div>
+
+                {!resetVerified ? (<>
+                  {/* Step 1: Email */}
+                  <div style={{ marginBottom: 10 }}>
+                    <label style={{ fontSize: 11, color: C.dim, fontWeight: 600, marginBottom: 4, display: "block" }}>Account email address</label>
+                    <div style={{ display: "flex", gap: 6 }}>
+                      <input type="email" value={resetEmail} onChange={e => { setResetEmail(e.target.value); setResetSent(false); setResetCode(""); }} placeholder="your@email.com" disabled={resetSent} style={{ flex: 1, padding: "10px 12px", background: "rgba(255,255,255,0.035)", border: `1.5px solid ${C.border}`, borderRadius: 8, color: C.text, fontSize: 13, fontFamily: "inherit", outline: "none" }} />
+                      {!resetSent && <button onClick={sendResetCode} style={{ padding: "0 14px", borderRadius: 8, border: "none", background: resetEmail.includes("@") ? "linear-gradient(135deg,#00E68A,#00B8D4)" : "rgba(255,255,255,0.08)", color: resetEmail.includes("@") ? "#06080D" : "rgba(255,255,255,0.3)", fontSize: 12, fontWeight: 700, cursor: resetEmail.includes("@") ? "pointer" : "default", fontFamily: "inherit" }}>Send Code</button>}
+                    </div>
+                  </div>
+
+                  {/* Step 2: Verification code */}
+                  {resetSent && (
+                    <div style={{ animation: "fadeUp 0.3s ease" }}>
+                      <div style={{ background: "rgba(0,230,138,0.08)", border: `1px solid ${C.accent}30`, borderRadius: 10, padding: 12, marginBottom: 8 }}>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: C.accent, marginBottom: 4 }}>📧 Reset code sent to {resetEmail}</div>
+                        {resetMethod === "email" ? (
+                          <div style={{ fontSize: 13, color: C.text, textAlign: "center", padding: "10px 0" }}>✅ Check your inbox for the 6-digit reset code</div>
+                        ) : (<>
+                          <div style={{ fontSize: 12, color: C.dim, marginBottom: 4 }}>Your reset code:</div>
+                          <div style={{ fontSize: 28, fontWeight: 800, letterSpacing: "0.3em", color: C.text, textAlign: "center", padding: "8px 0", background: "rgba(0,0,0,0.2)", borderRadius: 8, fontFamily: "monospace" }}>{resetCodeRef.current}</div>
+                          <div style={{ fontSize: 10, color: C.muted, marginTop: 4, textAlign: "center" }}>To enable real email delivery, configure EmailJS keys in the source code</div>
+                        </>)}
+                      </div>
+                      <div style={{ display: "flex", gap: 6 }}>
+                        <input value={resetCode} onChange={e => setResetCode(e.target.value)} onKeyDown={e => e.key === "Enter" && confirmReset()} placeholder="Enter 6-digit code" maxLength={6} style={{ flex: 1, padding: "10px 14px", background: "rgba(255,255,255,0.035)", border: `1.5px solid ${C.border}`, borderRadius: 8, color: C.text, fontSize: 14, fontFamily: "inherit", outline: "none", textAlign: "center", letterSpacing: "0.2em" }} />
+                        <button onClick={confirmReset} style={{ padding: "0 16px", borderRadius: 8, border: "none", background: resetCode.length === 6 ? "linear-gradient(135deg,#00E68A,#00B8D4)" : "rgba(255,255,255,0.08)", color: resetCode.length === 6 ? "#06080D" : "rgba(255,255,255,0.3)", fontSize: 12, fontWeight: 700, cursor: resetCode.length === 6 ? "pointer" : "default", fontFamily: "inherit" }}>Verify</button>
+                      </div>
+                    </div>
+                  )}
+                </>) : (
+                  /* Step 3: New password */
+                  <div style={{ animation: "fadeUp 0.3s ease" }}>
+                    <div style={{ fontSize: 12, color: C.accent, marginBottom: 10 }}>✓ Email verified! Enter your new password.</div>
+                    <div style={{ marginBottom: 10 }}>
+                      <label style={{ fontSize: 11, color: C.dim, fontWeight: 600, marginBottom: 4, display: "block" }}>New Password</label>
+                      <input type="password" value={newPw} onChange={e => setNewPw(e.target.value)} onKeyDown={e => e.key === "Enter" && doResetPw()} placeholder="Min 12 chars, mixed case + symbol" style={{ width: "100%", padding: "10px 12px", background: "rgba(255,255,255,0.035)", border: `1.5px solid ${C.border}`, borderRadius: 8, color: C.text, fontSize: 13, fontFamily: "inherit", outline: "none" }} />
+                      {newPw.length > 0 && (() => { const v = validatePw(newPw); return (
+                        <div style={{ marginTop: 6 }}>
+                          <div style={{ height: 4, borderRadius: 2, background: "rgba(255,255,255,0.06)", overflow: "hidden" }}>
+                            <div style={{ height: "100%", borderRadius: 2, width: `${strPct[v.strength]}%`, background: strColor[v.strength], transition: "all 0.3s" }} />
+                          </div>
+                          <div style={{ marginTop: 4, display: "flex", flexWrap: "wrap", gap: 3 }}>
+                            {[{l:"12+",m:v.length},{l:"A-Z",m:v.upper},{l:"a-z",m:v.lower},{l:"0-9",m:v.number},{l:"!@#",m:v.symbol}].map(r => (
+                              <span key={r.l} style={{ fontSize: 10, color: r.m ? C.accent : C.muted }}>{r.m ? "✓" : "○"}{r.l}</span>
+                            ))}
+                          </div>
+                        </div>
+                      ); })()}
+                    </div>
+                    <button onClick={doResetPw} disabled={!validatePw(newPw).valid} style={{ width: "100%", padding: "11px", borderRadius: 8, border: "none", background: validatePw(newPw).valid ? "linear-gradient(135deg,#00E68A,#00B8D4)" : "rgba(255,255,255,0.08)", color: validatePw(newPw).valid ? "#06080D" : "rgba(255,255,255,0.3)", fontSize: 13, fontWeight: 700, cursor: validatePw(newPw).valid ? "pointer" : "default", fontFamily: "inherit" }}>Reset Password</button>
+                  </div>
+                )}
+
+                {authErr && <div style={{ marginTop: 8, padding: "8px 12px", borderRadius: 8, background: `${C.danger}15`, border: `1px solid ${C.danger}30`, color: C.danger, fontSize: 12, fontWeight: 600 }}>✕ {authErr}</div>}
+              </div>
+            )}
+            <div style={{ textAlign: "center", marginTop: 14 }}>
+              <span style={{ fontSize: 10, color: C.muted }}>🔒 Passwords secured via SHA-256 hashing · Biometric data in {bioType === "Face ID" ? "iOS Keychain" : "Android Keystore"}</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ═══ WELCOME ═══ */}
+      {screen === "welcome" && (
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 32 }}>
+          <div style={{ animation: "fadeUp 0.5s ease both", maxWidth: 560, textAlign: "center" }}>
+            <h1 style={{ fontSize: 38, fontWeight: 800, letterSpacing: "-0.04em", marginBottom: 10, lineHeight: 1.1 }}>
+              Connect. Match.<br /><span style={{ color: C.accent }}>Succeed.</span>
+            </h1>
+            {username && <p style={{ fontSize: 13, color: C.accent, marginBottom: 4 }}>Signed in as @{username}</p>}
+            <p style={{ fontSize: 14, color: C.dim, lineHeight: 1.7, marginBottom: 36, maxWidth: 360, margin: "0 auto 36px" }}>
+              AI-powered platform helping sponsors discover and connect with the right athletes to champion. Smart matching, real partnerships.
+            </p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10, maxWidth: 400, margin: "0 auto" }}>
+              <button onClick={() => { setUserType("athlete"); setScreen("onboard"); setObStep(0); }} className="card-hover" style={{ padding: "18px 28px", borderRadius: 14, border: `2px solid ${C.accent}`, background: `${C.accent}12`, color: C.accent, fontSize: 15, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
+                <span style={{ fontSize: 22 }}>🏅</span> I'm an Athlete
+              </button>
+              <button onClick={() => { setUserType("sponsor"); setScreen("onboard"); setObStep(0); }} className="card-hover" style={{ padding: "18px 28px", borderRadius: 14, border: `2px solid ${C.secondary}`, background: `${C.secondary}12`, color: C.secondary, fontSize: 15, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
+                <span style={{ fontSize: 22 }}>🏢</span> I'm a Sponsor
+              </button>
+            </div>
+            <p style={{ fontSize: 10, color: C.muted, marginTop: 28 }}>By continuing, you agree to AthLink's Terms of Service</p>
+          </div>
+        </div>
+      )}
+
+      {/* ═══ ONBOARDING ═══ */}
+      {screen === "onboard" && (
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", padding: "0 28px" }}>
+          <div style={{ padding: "16px 0", display: "flex", alignItems: "center", gap: 14 }}>
+            <button onClick={() => obStep > 0 ? setObStep(obStep - 1) : setScreen("welcome")} style={{ background: "none", border: "none", color: C.dim, cursor: "pointer", fontSize: 16, padding: 6 }}>←</button>
+            <div style={{ flex: 1, height: 3, borderRadius: 2, background: "rgba(255,255,255,0.06)" }}>
+              <div style={{ height: "100%", borderRadius: 2, background: `linear-gradient(90deg,${C.accent},${C.secondary})`, width: `${((obStep + 1) / (userType === "athlete" ? 3 : 3)) * 100}%`, transition: "width 0.4s ease" }} />
+            </div>
+            <span style={{ fontSize: 11, color: C.muted }}>{obStep + 1}/3</span>
+          </div>
+          <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <div style={{ maxWidth: 480, width: "100%" }}>
+
+              {/* Athlete Step 1 */}
+              {userType === "athlete" && obStep === 0 && (
+                <div style={{ animation: "fadeUp 0.4s ease both" }}>
+                  <h2 style={{ fontSize: 26, fontWeight: 800, marginBottom: 6 }}>Let's get started 🏅</h2>
+                  <p style={{ color: C.dim, fontSize: 13, marginBottom: 28 }}>Quick setup — under 2 minutes.</p>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                    <div>
+                      <label style={{ fontSize: 11, color: C.dim, fontWeight: 600, marginBottom: 5, display: "block" }}>Your Name</label>
+                      <input value={ob.name} onChange={e => upOb("name", e.target.value)} placeholder="Full name" style={{ width: "100%", padding: "11px 14px", background: "rgba(255,255,255,0.035)", border: `1px solid ${C.border}`, borderRadius: 8, color: C.text, fontSize: 14, fontFamily: "inherit", outline: "none" }} />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: 11, color: C.dim, fontWeight: 600, marginBottom: 5, display: "block" }}>Sport</label>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                        {SPORTS.map(s => <button key={s} onClick={() => upOb("sport", s)} style={{ padding: "7px 13px", borderRadius: 20, border: `1px solid ${ob.sport === s ? C.accent : C.border}`, background: ob.sport === s ? `${C.accent}18` : "transparent", color: ob.sport === s ? C.accent : C.dim, fontSize: 12, fontWeight: ob.sport === s ? 600 : 400, cursor: "pointer", fontFamily: "inherit", transition: "all 0.2s" }}>{s}</button>)}
+                      </div>
+                    </div>
+                    <div>
+                      <label style={{ fontSize: 11, color: C.dim, fontWeight: 600, marginBottom: 5, display: "block" }}>Level</label>
+                      <div style={{ display: "flex", gap: 6 }}>
+                        {LEVELS.map(l => <button key={l} onClick={() => upOb("level", l)} style={{ flex: 1, padding: "9px 6px", borderRadius: 8, border: `1px solid ${ob.level === l ? C.accent : C.border}`, background: ob.level === l ? `${C.accent}18` : "transparent", color: ob.level === l ? C.accent : C.dim, fontSize: 11, fontWeight: ob.level === l ? 700 : 400, cursor: "pointer", fontFamily: "inherit", transition: "all 0.2s", textAlign: "center" }}>{l}</button>)}
+                      </div>
+                    </div>
+                  </div>
+                  <button onClick={() => setObStep(1)} disabled={!ob.name || !ob.sport || !ob.level} style={{ width: "100%", marginTop: 28, padding: "12px", border: "none", borderRadius: 10, fontWeight: 700, fontSize: 14, cursor: ob.name && ob.sport && ob.level ? "pointer" : "default", background: ob.name && ob.sport && ob.level ? "linear-gradient(135deg,#00E68A,#00B8D4)" : "rgba(255,255,255,0.08)", color: ob.name && ob.sport && ob.level ? "#06080D" : "rgba(255,255,255,0.3)", fontFamily: "inherit", transition: "all 0.2s" }}>Continue →</button>
+                </div>
+              )}
+
+              {/* Athlete Step 2 */}
+              {userType === "athlete" && obStep === 1 && (
+                <div style={{ animation: "fadeUp 0.4s ease both" }}>
+                  <h2 style={{ fontSize: 26, fontWeight: 800, marginBottom: 6 }}>What drives you? ✨</h2>
+                  <p style={{ color: C.dim, fontSize: 13, marginBottom: 28 }}>Pick up to 3 values — these power our AI matching.</p>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 20 }}>
+                    {VALUES.map(v => { const a = ob.values.includes(v), full = !a && ob.values.length >= 3; return <button key={v} onClick={() => !full && toggleVal(v)} style={{ padding: "8px 16px", borderRadius: 24, border: `1px solid ${a ? C.accent : C.border}`, background: a ? `${C.accent}18` : "transparent", color: a ? C.accent : full ? C.muted : C.dim, fontSize: 12, fontWeight: a ? 600 : 400, cursor: full ? "default" : "pointer", fontFamily: "inherit", transition: "all 0.2s", opacity: full ? 0.4 : 1 }}>{v}</button>; })}
+                  </div>
+                  <label style={{ fontSize: 11, color: C.dim, fontWeight: 600, marginBottom: 5, display: "block" }}>Your Goal</label>
+                  <input value={ob.goals} onChange={e => upOb("goals", e.target.value)} placeholder="e.g. 2028 Olympics, World Championship..." style={{ width: "100%", padding: "11px 14px", background: "rgba(255,255,255,0.035)", border: `1px solid ${C.border}`, borderRadius: 8, color: C.text, fontSize: 14, fontFamily: "inherit", outline: "none" }} />
+                  <button onClick={() => setObStep(2)} disabled={ob.values.length === 0} style={{ width: "100%", marginTop: 28, padding: "12px", border: "none", borderRadius: 10, fontWeight: 700, fontSize: 14, cursor: ob.values.length ? "pointer" : "default", background: ob.values.length ? "linear-gradient(135deg,#00E68A,#00B8D4)" : "rgba(255,255,255,0.08)", color: ob.values.length ? "#06080D" : "rgba(255,255,255,0.3)", fontFamily: "inherit" }}>Continue →</button>
+                </div>
+              )}
+
+              {/* Athlete Step 3 - Ready */}
+              {userType === "athlete" && obStep === 2 && (
+                <div style={{ animation: "fadeUp 0.4s ease both", textAlign: "center" }}>
+                  <div style={{ fontSize: 56, marginBottom: 12, animation: "float 3s ease-in-out infinite" }}>🚀</div>
+                  <h2 style={{ fontSize: 26, fontWeight: 800, marginBottom: 8 }}>Ready, {ob.name.split(" ")[0]}!</h2>
+                  <p style={{ color: C.dim, fontSize: 13, marginBottom: 20 }}>Swipe right to connect, left to pass.</p>
+                  <div style={{ display: "flex", gap: 8, justifyContent: "center", marginBottom: 24, flexWrap: "wrap" }}>
+                    <Badge color={C.accent}>{ob.sport}</Badge>
+                    <Badge color={C.secondary}>{ob.level}</Badge>
+                    {ob.values.map(v => <Badge key={v} color={C.warn}>{v}</Badge>)}
+                  </div>
+                  <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: 16, maxWidth: 340, margin: "0 auto 24px", textAlign: "left" }}>
+                    <div style={{ fontSize: 10, color: C.muted, fontWeight: 700, letterSpacing: ".08em", marginBottom: 10 }}>TOP MATCHES</div>
+                    {SPONSORS.slice(0, 3).map((s, i) => (
+                      <div key={s.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 0", borderBottom: i < 2 ? `1px solid ${C.border}` : "none", animation: `slideR 0.4s ease ${i * .1 + .2}s both` }}>
+                        <span style={{ fontSize: 20 }}>{s.logo}</span>
+                        <div style={{ flex: 1 }}><div style={{ fontSize: 13, fontWeight: 600 }}>{s.name}</div><div style={{ fontSize: 11, color: C.muted }}>{s.ind}</div></div>
+                        <Ring score={70 + Math.floor(Math.random() * 25)} size={32} />
+                      </div>
+                    ))}
+                  </div>
+                  <button onClick={() => { setScreen("main"); setTab("discover"); }} style={{ width: "100%", maxWidth: 340, padding: "14px", border: "none", borderRadius: 10, fontWeight: 700, fontSize: 15, cursor: "pointer", background: "linear-gradient(135deg,#00E68A,#00B8D4)", color: "#06080D", fontFamily: "inherit" }}>Start Swiping →</button>
+                </div>
+              )}
+
+              {/* Sponsor Step 1 */}
+              {userType === "sponsor" && obStep === 0 && (
+                <div style={{ animation: "fadeUp 0.4s ease both" }}>
+                  <h2 style={{ fontSize: 26, fontWeight: 800, marginBottom: 6 }}>Welcome, Partner 🏢</h2>
+                  <p style={{ color: C.dim, fontSize: 13, marginBottom: 28 }}>Tell us about your brand.</p>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                    <div>
+                      <label style={{ fontSize: 11, color: C.dim, fontWeight: 600, marginBottom: 5, display: "block" }}>Company Name</label>
+                      <input value={ob.name} onChange={e => upOb("name", e.target.value)} placeholder="Brand name" style={{ width: "100%", padding: "11px 14px", background: "rgba(255,255,255,0.035)", border: `1px solid ${C.border}`, borderRadius: 8, color: C.text, fontSize: 14, fontFamily: "inherit", outline: "none" }} />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: 11, color: C.dim, fontWeight: 600, marginBottom: 5, display: "block" }}>Industry</label>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                        {INDUSTRIES.map(ind => <button key={ind} onClick={() => upOb("industry", ind)} style={{ padding: "7px 13px", borderRadius: 20, border: `1px solid ${ob.industry === ind ? C.secondary : C.border}`, background: ob.industry === ind ? `${C.secondary}18` : "transparent", color: ob.industry === ind ? C.secondary : C.dim, fontSize: 12, fontWeight: ob.industry === ind ? 600 : 400, cursor: "pointer", fontFamily: "inherit", transition: "all 0.2s" }}>{ind}</button>)}
+                      </div>
+                    </div>
+                    <div>
+                      <label style={{ fontSize: 11, color: C.dim, fontWeight: 600, marginBottom: 5, display: "block" }}>Budget</label>
+                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                        {["$5K-25K", "$25K-100K", "$100K-500K", "$500K+"].map(b => <button key={b} onClick={() => upOb("budget", b)} style={{ flex: "1 1 auto", padding: "9px 14px", borderRadius: 8, border: `1px solid ${ob.budget === b ? C.secondary : C.border}`, background: ob.budget === b ? `${C.secondary}18` : "transparent", color: ob.budget === b ? C.secondary : C.dim, fontSize: 12, fontWeight: ob.budget === b ? 700 : 400, cursor: "pointer", fontFamily: "inherit", transition: "all 0.2s" }}>{b}</button>)}
+                      </div>
+                    </div>
+                  </div>
+                  <button onClick={() => setObStep(1)} disabled={!ob.name || !ob.industry || !ob.budget} style={{ width: "100%", marginTop: 28, padding: "12px", border: "none", borderRadius: 10, fontWeight: 700, fontSize: 14, cursor: ob.name && ob.industry && ob.budget ? "pointer" : "default", background: ob.name && ob.industry && ob.budget ? "linear-gradient(135deg,#00E68A,#00B8D4)" : "rgba(255,255,255,0.08)", color: ob.name && ob.industry && ob.budget ? "#06080D" : "rgba(255,255,255,0.3)", fontFamily: "inherit" }}>Continue →</button>
+                </div>
+              )}
+
+              {/* Sponsor Step 2 */}
+              {userType === "sponsor" && obStep === 1 && (
+                <div style={{ animation: "fadeUp 0.4s ease both" }}>
+                  <h2 style={{ fontSize: 26, fontWeight: 800, marginBottom: 6 }}>Brand values 🎯</h2>
+                  <p style={{ color: C.dim, fontSize: 13, marginBottom: 28 }}>Pick up to 3 to match with aligned athletes.</p>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                    {VALUES.map(v => { const a = ob.values.includes(v), full = !a && ob.values.length >= 3; return <button key={v} onClick={() => !full && toggleVal(v)} style={{ padding: "8px 16px", borderRadius: 24, border: `1px solid ${a ? C.secondary : C.border}`, background: a ? `${C.secondary}18` : "transparent", color: a ? C.secondary : full ? C.muted : C.dim, fontSize: 12, fontWeight: a ? 600 : 400, cursor: full ? "default" : "pointer", fontFamily: "inherit", transition: "all 0.2s", opacity: full ? 0.4 : 1 }}>{v}</button>; })}
+                  </div>
+                  <button onClick={() => setObStep(2)} disabled={ob.values.length === 0} style={{ width: "100%", marginTop: 28, padding: "12px", border: "none", borderRadius: 10, fontWeight: 700, fontSize: 14, cursor: ob.values.length ? "pointer" : "default", background: ob.values.length ? "linear-gradient(135deg,#00E68A,#00B8D4)" : "rgba(255,255,255,0.08)", color: ob.values.length ? "#06080D" : "rgba(255,255,255,0.3)", fontFamily: "inherit" }}>Continue →</button>
+                </div>
+              )}
+
+              {/* Sponsor Step 3 */}
+              {userType === "sponsor" && obStep === 2 && (
+                <div style={{ animation: "fadeUp 0.4s ease both", textAlign: "center" }}>
+                  <div style={{ fontSize: 56, marginBottom: 12, animation: "float 3s ease-in-out infinite" }}>⚡</div>
+                  <h2 style={{ fontSize: 26, fontWeight: 800, marginBottom: 8 }}>All set, {ob.name}!</h2>
+                  <p style={{ color: C.dim, fontSize: 13, marginBottom: 20 }}>Swipe through your athlete matches.</p>
+                  <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: 16, maxWidth: 340, margin: "0 auto 24px", textAlign: "left" }}>
+                    <div style={{ fontSize: 10, color: C.muted, fontWeight: 700, letterSpacing: ".08em", marginBottom: 10 }}>TOP ATHLETES</div>
+                    {ATHLETES.slice(0, 3).map((a, i) => (
+                      <div key={a.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 0", borderBottom: i < 2 ? `1px solid ${C.border}` : "none", animation: `slideR 0.4s ease ${i * .1 + .2}s both` }}>
+                        <span style={{ fontSize: 20 }}>{a.av}</span>
+                        <div style={{ flex: 1 }}><div style={{ fontSize: 13, fontWeight: 600 }}>{a.name}</div><div style={{ fontSize: 11, color: C.muted }}>{a.sport} · {a.level}</div></div>
+                        <Ring score={matchScore(a, ob.values)} size={32} />
+                      </div>
+                    ))}
+                  </div>
+                  <button onClick={() => { setScreen("main"); setTab("discover"); }} style={{ width: "100%", maxWidth: 340, padding: "14px", border: "none", borderRadius: 10, fontWeight: 700, fontSize: 15, cursor: "pointer", background: "linear-gradient(135deg,#00E68A,#00B8D4)", color: "#06080D", fontFamily: "inherit" }}>Start Swiping →</button>
+                </div>
+              )}
+
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ═══ MAIN APP ═══ */}
+      {screen === "main" && (
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+          {/* Header */}
+          <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 20px", borderBottom: `1px solid ${C.border}`, background: "rgba(6,8,13,0.9)", backdropFilter: "blur(20px)", flexShrink: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <img src={LOGO} alt="AthLink" style={{ height: 28, filter: "invert(1)" }} />
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <Badge color={userType === "athlete" ? C.accent : C.secondary}>{userType === "athlete" ? "🏅 Athlete" : "🏢 Sponsor"}</Badge>
+              <div style={{ width: 30, height: 30, borderRadius: "50%", background: `linear-gradient(135deg,${C.accent},${C.secondary})`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: C.bg }}>{ob.name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase()}</div>
+            </div>
+          </header>
+
+          {/* Content */}
+          <div style={{ flex: 1, overflowY: "auto", padding: chatWith ? "0" : "16px 20px 90px" }}>
+
+            {/* ═══ DISCOVER - SWIPE ═══ */}
+            {tab === "discover" && !selected && (
+              <div>
+                <h2 style={{ fontSize: 20, fontWeight: 800, marginBottom: 4 }}>Discover {userType === "sponsor" ? "Athletes" : "Sponsors"}</h2>
+                <p style={{ color: C.dim, fontSize: 12, marginBottom: 16 }}>Swipe right to connect, left to pass</p>
+
+                {currentCard ? (
+                  <div style={{ position: "relative", maxWidth: 400, margin: "0 auto" }}>
+                    <div
+                      onMouseDown={e => onDragStart(e.clientX)}
+                      onMouseMove={e => onDragMove(e.clientX)}
+                      onMouseUp={onDragEnd}
+                      onMouseLeave={() => { if(dragging) onDragEnd(); }}
+                      onTouchStart={e => onDragStart(e.touches[0].clientX)}
+                      onTouchMove={e => onDragMove(e.touches[0].clientX)}
+                      onTouchEnd={onDragEnd}
+                      style={{
+                        background: C.card, border: `1px solid ${dragX > 40 ? C.accent : dragX < -40 ? C.danger : C.border}`, borderRadius: 20, padding: 20, cursor: "grab", userSelect: "none",
+                        transform: `translateX(${dragX}px) rotate(${dragX * 0.05}deg)`, transition: dragging ? "none" : "all 0.3s ease",
+                        animation: "cardIn 0.4s ease both",
+                      }}
+                    >
+                      {/* Swipe labels */}
+                      {dragX > 40 && <div style={{ position: "absolute", top: 20, left: 20, padding: "6px 16px", borderRadius: 8, background: `${C.accent}30`, color: C.accent, fontWeight: 800, fontSize: 18, border: `2px solid ${C.accent}`, opacity: Math.min(Math.abs(dragX) / 100, 1), transform: "rotate(-12deg)" }}>CONNECT</div>}
+                      {dragX < -40 && <div style={{ position: "absolute", top: 20, right: 20, padding: "6px 16px", borderRadius: 8, background: `${C.danger}30`, color: C.danger, fontWeight: 800, fontSize: 18, border: `2px solid ${C.danger}`, opacity: Math.min(Math.abs(dragX) / 100, 1), transform: "rotate(12deg)" }}>PASS</div>}
+
+                      <div style={{ display: "flex", gap: 14, alignItems: "flex-start", marginBottom: 14 }}>
+                        <div style={{ fontSize: 40, width: 64, height: 64, borderRadius: 16, background: "rgba(255,255,255,0.04)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                          {currentCard.type === "athlete" ? currentCard.av : currentCard.logo}
+                        </div>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2 }}>
+                            <span style={{ fontWeight: 700, fontSize: 18 }}>{currentCard.name}</span>
+                            {currentCard.verified && <span style={{ color: C.accent, fontSize: 14 }}>✓</span>}
+                          </div>
+                          <div style={{ fontSize: 12, color: C.dim }}>
+                            {currentCard.type === "athlete" ? `${currentCard.sport} · ${currentCard.level} · ${currentCard.country}` : currentCard.ind}
+                          </div>
+                        </div>
+                        <Ring score={currentCard.score} size={50} />
+                      </div>
+
+                      <p style={{ fontSize: 13, color: C.dim, lineHeight: 1.6, marginBottom: 14 }}>{currentCard.bio}</p>
+
+                      {currentCard.type === "athlete" && (
+                        <>
+                          <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
+                            {[{l:"IG",v:currentCard.socials.ig,c:"#E1306C"},{l:"TT",v:currentCard.socials.tt,c:"#ff0050"},{l:"X",v:currentCard.socials.x,c:"#1DA1F2"},{l:"YT",v:currentCard.socials.yt,c:"#FF0000"}].map(s => (
+                              <div key={s.l} style={{ flex: 1, background: "rgba(255,255,255,0.03)", borderRadius: 8, padding: "6px 4px", textAlign: "center", border: `1px solid ${C.border}` }}>
+                                <div style={{ fontSize: 9, fontWeight: 700, color: s.c }}>{s.l}</div>
+                                <div style={{ fontSize: 12, fontWeight: 600 }}>{fmt(s.v)}</div>
+                              </div>
+                            ))}
+                          </div>
+                          <div style={{ display: "flex", gap: 12, marginBottom: 12, fontSize: 12 }}>
+                            <span style={{ color: C.muted }}>Engagement: <strong style={{ color: C.accent }}>{currentCard.eng}%</strong></span>
+                            <span style={{ color: C.muted }}>Growth: <strong style={{ color: C.secondary }}>+{currentCard.growth}%</strong></span>
+                            <span style={{ color: C.muted }}>Ask: <strong style={{ color: C.warn }}>{currentCard.ask}</strong></span>
+                          </div>
+                        </>
+                      )}
+                      {currentCard.type === "sponsor" && (
+                        <div style={{ display: "flex", gap: 12, marginBottom: 12, fontSize: 12 }}>
+                          <span style={{ color: C.muted }}>Budget: <strong style={{ color: C.warn }}>{currentCard.budget}</strong></span>
+                          <span style={{ color: C.muted }}>Active Deals: <strong style={{ color: C.text }}>{currentCard.deals}</strong></span>
+                        </div>
+                      )}
+
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 12 }}>
+                        {currentCard.values.map(v => <Badge key={v}>{v}</Badge>)}
+                      </div>
+
+                      {currentCard.type === "athlete" && (() => { const r = matchReasons(currentCard, ob.values); return r.length > 0 ? (
+                        <div style={{ padding: "10px 12px", background: `${C.accent}12`, borderRadius: 10, border: `1px solid ${C.accent}25` }}>
+                          <div style={{ fontSize: 10, color: C.accent, fontWeight: 700, marginBottom: 4 }}>◇ WHY THIS MATCH</div>
+                          {r.map((r, i) => <div key={i} style={{ fontSize: 11, color: "rgba(0,230,138,0.8)", lineHeight: 1.5 }}>• {r}</div>)}
+                        </div>
+                      ) : null; })()}
+                    </div>
+
+                    {/* Action buttons */}
+                    <div style={{ display: "flex", justifyContent: "center", gap: 16, marginTop: 16 }}>
+                      <button onClick={() => { setSwiped(p => ({ ...p, passed: [...p.passed, currentCard.id] })); }} style={{ width: 52, height: 52, borderRadius: "50%", border: `2px solid ${C.danger}`, background: `${C.danger}12`, color: C.danger, fontSize: 22, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
+                      <button onClick={() => { toggleSave(currentCard.id); notify(saved.includes(currentCard.id) ? "Removed" : "Saved!"); }} style={{ width: 52, height: 52, borderRadius: "50%", border: `2px solid ${C.warn}`, background: `${C.warn}12`, color: C.warn, fontSize: 20, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>{saved.includes(currentCard.id) ? "★" : "☆"}</button>
+                      <button onClick={() => { setSwiped(p => ({ ...p, liked: [...p.liked, currentCard.id] })); const cc = currentCard; setChats(p => ({ ...p, [cc.id]: [{ from: "system", text: `Connected with ${cc.name}! 🎉`, time: Date.now() }] })); notify(`Connected with ${currentCard.name}!`); setTimeout(() => { setTyping(p => ({ ...p, [cc.id]: true })); setTimeout(() => { setChats(p => ({ ...p, [cc.id]: [...(p[cc.id]||[]), { from: "them", text: "Hey! Great to connect! I'd love to explore a partnership.", time: Date.now() }] })); setTyping(p => ({ ...p, [cc.id]: false })); }, 2000); }, 800); }} style={{ width: 52, height: 52, borderRadius: "50%", border: `2px solid ${C.accent}`, background: `${C.accent}12`, color: C.accent, fontSize: 22, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>💚</button>
+                    </div>
+
+                    {/* Tap to see full profile */}
+                    <button onClick={() => setSelected(currentCard)} style={{ display: "block", margin: "12px auto 0", background: "none", border: "none", color: C.dim, fontSize: 12, cursor: "pointer", fontFamily: "inherit", textDecoration: "underline" }}>View full profile →</button>
+                  </div>
+                ) : (
+                  <div style={{ textAlign: "center", padding: "60px 0" }}>
+                    <div style={{ fontSize: 48, marginBottom: 12 }}>🎉</div>
+                    <h3 style={{ fontSize: 20, fontWeight: 700, marginBottom: 8 }}>All caught up!</h3>
+                    <p style={{ color: C.dim, fontSize: 13, marginBottom: 20 }}>You've seen everyone. Reset to browse again.</p>
+                    <button onClick={() => setSwiped({ liked: [], passed: [] })} style={{ padding: "10px 24px", borderRadius: 10, border: `1px solid ${C.accent}`, background: `${C.accent}12`, color: C.accent, fontWeight: 600, fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>Reset & Browse Again</button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ═══ PROFILE DETAIL ═══ */}
+            {tab === "discover" && selected && (
+              <div style={{ animation: "fadeUp 0.3s ease both" }}>
+                <button onClick={() => setSelected(null)} style={{ background: "none", border: "none", color: C.dim, cursor: "pointer", fontSize: 13, fontFamily: "inherit", marginBottom: 14 }}>← Back</button>
+                {(() => { const p = selected, isA = p.type === "athlete"; return (
+                  <div style={{ maxWidth: 500 }}>
+                    <div style={{ display: "flex", gap: 14, marginBottom: 20 }}>
+                      <div style={{ fontSize: 44, width: 68, height: 68, borderRadius: 18, background: "rgba(255,255,255,0.04)", display: "flex", alignItems: "center", justifyContent: "center" }}>{isA ? p.av : p.logo}</div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2 }}><h2 style={{ fontSize: 22, fontWeight: 800 }}>{p.name}</h2>{p.verified && <Badge>✓ Verified</Badge>}</div>
+                        <div style={{ fontSize: 13, color: C.dim, marginBottom: 6 }}>{isA ? `${p.sport} · ${p.level} · ${p.country}` : p.ind}</div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}><Ring score={p.score} size={40} /><span style={{ fontSize: 12, color: C.dim }}>AI Match</span></div>
+                      </div>
+                    </div>
+                    <p style={{ fontSize: 14, color: C.dim, lineHeight: 1.7, marginBottom: 20 }}>{p.bio}</p>
+
+                    {isA && (() => { const r = matchReasons(p, ob.values); return r.length ? <div style={{ background: `${C.accent}12`, border: `1px solid ${C.accent}25`, borderRadius: 14, padding: 14, marginBottom: 20 }}><div style={{ fontSize: 11, fontWeight: 700, color: C.accent, marginBottom: 6 }}>◇ AI MATCH ANALYSIS</div>{r.map((x,i) => <div key={i} style={{ fontSize: 12, color: "rgba(0,230,138,0.85)", lineHeight: 1.6 }}>• {x}</div>)}</div> : null; })()}
+
+                    {isA && <>
+                      <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
+                        {[{l:"IG",v:p.socials.ig,c:"#E1306C"},{l:"TT",v:p.socials.tt,c:"#ff0050"},{l:"X",v:p.socials.x,c:"#1DA1F2"},{l:"YT",v:p.socials.yt,c:"#FF0000"}].map(s => (
+                          <div key={s.l} style={{ flex:1, background: "rgba(255,255,255,0.03)", borderRadius: 8, padding: "8px 4px", textAlign: "center", border: `1px solid ${C.border}` }}>
+                            <div style={{ fontSize: 9, fontWeight: 700, color: s.c, marginBottom: 2 }}>{s.l}</div>
+                            <div style={{ fontSize: 13, fontWeight: 600 }}>{fmt(s.v)}</div>
+                          </div>
+                        ))}
+                      </div>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 16 }}>
+                        <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14 }}><div style={{ fontSize: 10, color: C.muted, marginBottom: 2 }}>Engagement</div><div style={{ fontSize: 20, fontWeight: 800, color: C.accent }}>{p.eng}%</div></div>
+                        <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14 }}><div style={{ fontSize: 10, color: C.muted, marginBottom: 2 }}>Growth</div><div style={{ fontSize: 20, fontWeight: 800, color: C.secondary }}>+{p.growth}%</div></div>
+                      </div>
+                      <div style={{ marginBottom: 16 }}><div style={{ fontSize: 11, color: C.muted, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 8 }}>Achievements</div>{p.achievements.map((a,i) => <div key={i} style={{ fontSize: 13, marginBottom: 4 }}><span style={{ color: C.warn }}>★</span> {a}</div>)}</div>
+                      {p.goals && <div style={{ marginBottom: 16 }}><div style={{ fontSize: 11, color: C.muted, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 4 }}>Goal</div><p style={{ fontSize: 13, lineHeight: 1.6 }}>{p.goals}</p></div>}
+                      {p.links && <LinkTree links={p.links} />}
+                      <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14, marginBottom: 16, display: "flex", justifyContent: "space-between" }}><span style={{ fontSize: 12, color: C.muted }}>Sponsorship Range</span><span style={{ fontWeight: 700, color: C.warn }}>{p.ask}</span></div>
+                    </>}
+
+                    {!isA && <>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 16 }}>
+                        <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14 }}><div style={{ fontSize: 10, color: C.muted, marginBottom: 2 }}>Budget</div><div style={{ fontSize: 18, fontWeight: 800, color: C.warn }}>{p.budget}</div></div>
+                        <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14 }}><div style={{ fontSize: 10, color: C.muted, marginBottom: 2 }}>Active Deals</div><div style={{ fontSize: 18, fontWeight: 800, color: C.accent }}>{p.deals}</div></div>
+                      </div>
+                      <div style={{ marginBottom: 16 }}><div style={{ fontSize: 11, color: C.muted, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 8 }}>Looking For</div>{p.looking.map((l,i) => <div key={i} style={{ fontSize: 13, marginBottom: 4 }}><span style={{ color: C.secondary }}>◎</span> {l}</div>)}</div>
+                      {p.links && <LinkTree links={p.links} />}
+                    </>}
+
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 20 }}>{p.values.map(v => <Badge key={v}>{v}</Badge>)}</div>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <button onClick={() => { if(!chats[p.id]) { setSwiped(prev => ({ ...prev, liked: [...prev.liked.filter(x => x !== p.id), p.id] })); setChats(prev => ({ ...prev, [p.id]: [{ from: "system", text: `Connected with ${p.name}! 🎉`, time: Date.now() }] })); } setChatWith(p); setTab("messages"); setSelected(null); notify(`Connected with ${p.name}!`); }} style={{ flex: 2, padding: "12px", border: "none", borderRadius: 10, fontWeight: 700, fontSize: 14, cursor: "pointer", background: "linear-gradient(135deg,#00E68A,#00B8D4)", color: "#06080D", fontFamily: "inherit" }}>Connect 🤝</button>
+                      <button onClick={() => { toggleSave(p.id); notify(saved.includes(p.id) ? "Removed" : "Saved!"); }} style={{ flex: 1, padding: "12px", border: `1px solid ${C.border}`, borderRadius: 10, fontWeight: 600, fontSize: 13, cursor: "pointer", background: "rgba(255,255,255,0.03)", color: C.text, fontFamily: "inherit" }}>{saved.includes(p.id) ? "★ Saved" : "☆ Save"}</button>
+                    </div>
+                  </div>
+                ); })()}
+              </div>
+            )}
+
+            {/* ═══ MATCHES TAB ═══ */}
+            {tab === "matches" && (
+              <div>
+                <h2 style={{ fontSize: 20, fontWeight: 800, marginBottom: 4 }}>Matches</h2>
+                <p style={{ color: C.dim, fontSize: 12, marginBottom: 16 }}>Your connections & saved profiles</p>
+
+                {saved.length > 0 && <>
+                  <div style={{ fontSize: 10, color: C.warn, fontWeight: 700, letterSpacing: ".08em", marginBottom: 8 }}>★ SAVED ({saved.length})</div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 }}>
+                    {pool.filter(p => saved.includes(p.id)).map((p, i) => (
+                      <div key={p.id} className="card-hover" onClick={() => { setSelected(p); setTab("discover"); }} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14, cursor: "pointer", display: "flex", alignItems: "center", gap: 12, animation: `fadeUp 0.3s ease ${i * .05}s both` }}>
+                        <span style={{ fontSize: 26 }}>{p.type === "athlete" ? p.av : p.logo}</span>
+                        <div style={{ flex: 1 }}><div style={{ fontWeight: 600, fontSize: 14 }}>{p.name}</div><div style={{ fontSize: 11, color: C.dim }}>{p.type === "athlete" ? `${p.sport} · ${p.level}` : p.ind}</div></div>
+                        <Ring score={p.score} size={36} />
+                      </div>
+                    ))}
+                  </div>
+                </>}
+
+                <div style={{ fontSize: 10, color: C.accent, fontWeight: 700, letterSpacing: ".08em", marginBottom: 8 }}>CONNECTIONS ({swiped.liked.length})</div>
+                {swiped.liked.length === 0 ? (
+                  <div style={{ textAlign: "center", padding: "40px 0", color: C.muted }}><div style={{ fontSize: 36, marginBottom: 8 }}>🤝</div><p style={{ fontSize: 13 }}>Swipe right on profiles to connect!</p></div>
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    {pool.filter(p => swiped.liked.includes(p.id)).map((p, i) => (
+                      <div key={p.id} className="card-hover" onClick={() => { if(chats[p.id]) { setChatWith(p); setTab("messages"); } else { setSelected(p); setTab("discover"); } }} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14, cursor: "pointer", display: "flex", alignItems: "center", gap: 12, animation: `fadeUp 0.3s ease ${i * .05}s both` }}>
+                        <span style={{ fontSize: 26 }}>{p.type === "athlete" ? p.av : p.logo}</span>
+                        <div style={{ flex: 1 }}><div style={{ fontWeight: 600, fontSize: 14 }}>{p.name}</div><div style={{ fontSize: 11, color: C.dim }}>{chats[p.id] ? "💬 Active chat" : p.type === "athlete" ? `${p.sport} · ${p.level}` : p.ind}</div></div>
+                        {chats[p.id] ? <span style={{ fontSize: 16 }}>💬</span> : <Ring score={p.score} size={36} />}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ═══ MESSAGES TAB ═══ */}
+            {tab === "messages" && !chatWith && (
+              <div>
+                <h2 style={{ fontSize: 20, fontWeight: 800, marginBottom: 4 }}>Messages 💬</h2>
+                <p style={{ color: C.dim, fontSize: 12, marginBottom: 16 }}>Your conversations</p>
+                {Object.keys(chats).length === 0 ? (
+                  <div style={{ textAlign: "center", padding: "60px 0", color: C.muted }}><div style={{ fontSize: 36, marginBottom: 8 }}>💬</div><p style={{ fontSize: 13 }}>No chats yet. Connect with matches to start!</p></div>
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    {Object.entries(chats).map(([id, msgs]) => { const p = [...ATHLETES, ...SPONSORS].find(x => x.id === id); if(!p) return null; const last = msgs[msgs.length - 1]; return (
+                      <div key={id} className="card-hover" onClick={() => setChatWith(p)} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14, cursor: "pointer", display: "flex", alignItems: "center", gap: 12 }}>
+                        <span style={{ fontSize: 26 }}>{p.type === "athlete" ? p.av : p.logo}</span>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontWeight: 600, fontSize: 14 }}>{p.name}</div>
+                          <div style={{ fontSize: 12, color: typing[id] ? C.accent : C.muted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {typing[id] ? "typing..." : `${last?.from === "me" ? "You: " : ""}${last?.text || ""}`}
+                          </div>
+                        </div>
+                        {typing[id] && <div style={{ display: "flex", gap: 3 }}>{[0,1,2].map(i => <div key={i} style={{ width: 5, height: 5, borderRadius: "50%", background: C.accent, animation: `dotPulse 1.4s ease-in-out ${i * .2}s infinite` }} />)}</div>}
+                      </div>
+                    ); })}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ═══ CHAT VIEW ═══ */}
+            {tab === "messages" && chatWith && (
+              <div style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 130px)" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 20px", borderBottom: `1px solid ${C.border}`, flexShrink: 0 }}>
+                  <button onClick={() => setChatWith(null)} style={{ background: "none", border: "none", color: C.dim, cursor: "pointer", fontSize: 16 }}>←</button>
+                  <span style={{ fontSize: 22 }}>{chatWith.type === "athlete" ? chatWith.av : chatWith.logo}</span>
+                  <div style={{ flex: 1 }}><div style={{ fontWeight: 600, fontSize: 14 }}>{chatWith.name}</div><div style={{ fontSize: 11, color: C.accent }}>● Online</div></div>
+                  <Ring score={chatWith.score} size={32} />
+                </div>
+                <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 6, padding: "12px 20px" }}>
+                  {(chats[chatWith.id] || []).map((msg, i) => (
+                    <div key={i} style={{ alignSelf: msg.from === "me" ? "flex-end" : msg.from === "system" ? "center" : "flex-start", maxWidth: msg.from === "system" ? "90%" : "78%", padding: msg.from === "system" ? "6px 14px" : "10px 14px", borderRadius: msg.from === "me" ? "14px 14px 4px 14px" : msg.from === "system" ? "16px" : "14px 14px 14px 4px", background: msg.from === "me" ? "linear-gradient(135deg,#00E68A,#00B8D4)" : msg.from === "system" ? "rgba(255,255,255,0.03)" : "rgba(255,255,255,0.06)", color: msg.from === "me" ? C.bg : msg.from === "system" ? C.muted : C.text, fontSize: msg.from === "system" ? 11 : 13, fontStyle: msg.from === "system" ? "italic" : "normal", fontWeight: msg.from === "me" ? 600 : 400, lineHeight: 1.5, animation: `scaleIn 0.2s ease ${Math.min(i * .03, .3)}s both` }}>{msg.text}</div>
+                  ))}
+                  {typing[chatWith.id] && <div style={{ alignSelf: "flex-start", padding: "10px 16px", borderRadius: "14px 14px 14px 4px", background: "rgba(255,255,255,0.06)", display: "flex", gap: 4 }}>{[0,1,2].map(i => <div key={i} style={{ width: 6, height: 6, borderRadius: "50%", background: C.dim, animation: `dotPulse 1.4s ease-in-out ${i * .2}s infinite` }} />)}</div>}
+                  <div ref={chatEnd} />
+                </div>
+                <div style={{ padding: "0 20px 12px", flexShrink: 0 }}>
+                  <ChatInput onSend={text => sendMsg(chatWith.id, text)} />
+                </div>
+              </div>
+            )}
+
+            {/* ═══ PROFILE TAB ═══ */}
+            {tab === "profile" && (
+              <div style={{ maxWidth: 600, width: "100%", margin: "0 auto" }}>
+                <h2 style={{ fontSize: 24, fontWeight: 800, marginBottom: 20, textAlign: "center" }}>My Profile</h2>
+                <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 16, padding: 24, width: "100%" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 20 }}>
+                    <input type="file" accept="image/*" ref={fileInputRef} onChange={handlePhoto} style={{ display: "none" }} />
+                    <div onClick={() => fileInputRef.current?.click()} style={{ width: 80, height: 80, borderRadius: 20, background: profile.photo ? `url(${profile.photo}) center/cover` : `linear-gradient(135deg,${C.accent},${C.secondary})`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: profile.photo ? 0 : 26, fontWeight: 800, color: C.bg, cursor: "pointer", border: `2px solid ${C.border}`, position: "relative", overflow: "hidden", flexShrink: 0 }}>
+                      {!profile.photo && ob.name.split(" ").map(w => w[0]).join("").slice(0,2).toUpperCase()}
+                      <div style={{ position: "absolute", bottom: 0, width: "100%", background: "rgba(0,0,0,0.55)", fontSize: 10, textAlign: "center", padding: "3px 0", color: "#fff" }}>📷 {userType === "sponsor" ? "Logo" : "Photo"}</div>
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <h3 style={{ fontSize: 22, fontWeight: 700 }}>{ob.name}</h3>
+                      <div style={{ fontSize: 14, color: C.dim }}>{userType === "athlete" ? `${ob.sport} · ${ob.level}` : `${ob.industry} · ${ob.budget}`}</div>
+                      {username && <div style={{ fontSize: 13, color: C.muted, marginTop: 2 }}>@{username}</div>}
+                    </div>
+                    <button onClick={() => setEditProfile(!editProfile)} style={{ padding: "10px 18px", borderRadius: 10, border: `1px solid ${C.border}`, background: editProfile ? `${C.accent}18` : "transparent", color: editProfile ? C.accent : C.dim, fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>{editProfile ? "✓ Done" : "✏️ Edit"}</button>
+                  </div>
+
+                  {/* SPONSOR VIEW */}
+                  {userType === "sponsor" && !editProfile && (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 18 }}>
+                      {[{icon:"🏢",label:"Company",val:profile.companyName||ob.name},{icon:"🏠",label:"Address",val:profile.address},{icon:"📞",label:"Contact",val:profile.phone}].map(f => f.val ? <div key={f.label} style={{ display:"flex", gap:10, fontSize:15 }}><span>{f.icon}</span><span style={{ color:C.muted, minWidth:90 }}>{f.label}</span><span style={{ color:C.text }}>{f.val}</span></div> : null)}
+                      {!profile.address && !profile.phone && <div style={{ fontSize:14, color:C.muted, fontStyle:"italic" }}>Tap "Edit" to update company details</div>}
+                    </div>
+                  )}
+                  {userType === "sponsor" && editProfile && (
+                    <div style={{ display:"flex", flexDirection:"column", gap:12, marginBottom:18, animation:"fadeUp 0.3s ease" }}>
+                      {[{key:"companyName",label:"Company Name",type:"text",icon:"🏢",ph:ob.name||"Company"},{key:"address",label:"Address",type:"text",icon:"🏠",ph:"Office address"},{key:"phone",label:"Contact Number",type:"tel",icon:"📞",ph:"+1 234 567 8900"}].map(f => (
+                        <div key={f.key}><label style={{ fontSize:12, color:C.dim, fontWeight:600, marginBottom:4, display:"flex", alignItems:"center", gap:5 }}><span>{f.icon}</span>{f.label}</label>
+                        <input type={f.type} value={profile[f.key]||""} onChange={e => upProf(f.key, e.target.value)} placeholder={f.ph} style={{ width:"100%", padding:"12px 14px", background:"rgba(255,255,255,0.035)", border:`1px solid ${C.border}`, borderRadius:10, color:C.text, fontSize:15, fontFamily:"inherit", outline:"none" }} /></div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* ATHLETE VIEW */}
+                  {userType === "athlete" && !editProfile && (
+                    <div style={{ display:"flex", flexDirection:"column", gap:8, marginBottom:18 }}>
+                      {[{icon:"📧",label:"Email",val:profile.email},{icon:"🎂",label:"Birthdate",val:profile.birthdate},{icon:"🔢",label:"Age",val:profile.age},{icon:"⚧",label:"Gender",val:profile.gender},{icon:"🌍",label:"Nationality",val:profile.nationality},{icon:"🏠",label:"Address",val:profile.address},{icon:"⚽",label:"Sports",val:profile.sports?.join(", ")}].map(f => f.val ? <div key={f.label} style={{ display:"flex", gap:10, fontSize:15 }}><span>{f.icon}</span><span style={{ color:C.muted, minWidth:90 }}>{f.label}</span><span style={{ color:C.text }}>{f.val}</span></div> : null)}
+                      {!profile.email && !profile.birthdate && <div style={{ fontSize:14, color:C.muted, fontStyle:"italic" }}>Tap "Edit" to add your personal details</div>}
+                    </div>
+                  )}
+                  {userType === "athlete" && editProfile && (
+                    <div style={{ display:"flex", flexDirection:"column", gap:12, marginBottom:18, animation:"fadeUp 0.3s ease" }}>
+                      {[{key:"email",label:"Email",type:"email",icon:"📧",ph:"your@email.com"},{key:"birthdate",label:"Birthdate",type:"date",icon:"🎂",ph:""},{key:"age",label:"Age",type:"number",icon:"🔢",ph:"25"},{key:"nationality",label:"Nationality",type:"text",icon:"🌍",ph:"e.g. Filipino"},{key:"address",label:"Address",type:"text",icon:"🏠",ph:"City, Country"}].map(f => (
+                        <div key={f.key}><label style={{ fontSize:12, color:C.dim, fontWeight:600, marginBottom:4, display:"flex", alignItems:"center", gap:5 }}><span>{f.icon}</span>{f.label}</label>
+                        <input type={f.type} value={profile[f.key]||""} onChange={e => upProf(f.key, e.target.value)} placeholder={f.ph} style={{ width:"100%", padding:"12px 14px", background:"rgba(255,255,255,0.035)", border:`1px solid ${C.border}`, borderRadius:10, color:C.text, fontSize:15, fontFamily:"inherit", outline:"none" }} /></div>
+                      ))}
+                      <div><label style={{ fontSize:12, color:C.dim, fontWeight:600, marginBottom:4, display:"flex", alignItems:"center", gap:5 }}>⚧ Gender</label>
+                        <div style={{ display:"flex", gap:8 }}>{["Male","Female","Non-binary","Other"].map(g => <button key={g} onClick={() => upProf("gender",g)} style={{ flex:1, padding:"10px 6px", borderRadius:8, border:`1px solid ${profile.gender===g?C.accent:C.border}`, background:profile.gender===g?`${C.accent}18`:"transparent", color:profile.gender===g?C.accent:C.dim, fontSize:13, fontWeight:profile.gender===g?700:400, cursor:"pointer", fontFamily:"inherit" }}>{g}</button>)}</div>
+                      </div>
+                      <div><label style={{ fontSize:12, color:C.dim, fontWeight:600, marginBottom:4, display:"flex", alignItems:"center", gap:5 }}>⚽ Sports</label>
+                        <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>{SPORTS.map(s => { const sel = profile.sports?.includes(s); return <button key={s} onClick={() => upProf("sports", sel ? profile.sports.filter(x=>x!==s) : [...(profile.sports||[]), s])} style={{ padding:"8px 14px", borderRadius:16, border:`1px solid ${sel?C.accent:C.border}`, background:sel?`${C.accent}18`:"transparent", color:sel?C.accent:C.dim, fontSize:12, fontWeight:sel?600:400, cursor:"pointer", fontFamily:"inherit" }}>{s}</button>; })}</div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ACCOMPLISHMENTS (athlete only) */}
+                  {userType === "athlete" && (
+                    <div style={{ marginBottom:18 }}>
+                      <div style={{ fontSize:12, color:C.muted, fontWeight:700, textTransform:"uppercase", letterSpacing:".06em", marginBottom:8 }}>🏆 Accomplishments</div>
+                      {profile.accomplishments?.length > 0 ? (
+                        <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+                          {profile.accomplishments.map((a,i) => (
+                            <div key={i} style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 14px", borderRadius:10, background:"rgba(255,184,0,0.06)", border:"1px solid rgba(255,184,0,0.15)" }}>
+                              <span style={{ color:C.warn, fontSize:16 }}>🥇</span>
+                              <span style={{ flex:1, fontSize:14, color:C.text }}>{a}</span>
+                              {editProfile && <button onClick={() => upProf("accomplishments", profile.accomplishments.filter((_,j) => j!==i))} style={{ background:"none", border:"none", color:C.danger, cursor:"pointer", fontSize:16 }}>✕</button>}
+                            </div>
+                          ))}
+                        </div>
+                      ) : <div style={{ fontSize:14, color:C.muted, fontStyle:"italic" }}>{editProfile ? "Add your accomplishments below" : "No accomplishments yet — tap Edit to add"}</div>}
+                      {editProfile && (
+                        <div style={{ display:"flex", gap:8, marginTop:8 }}>
+                          <input value={newAccomp} onChange={e => setNewAccomp(e.target.value)} onKeyDown={e => { if(e.key==="Enter"&&newAccomp.trim()){upProf("accomplishments",[...(profile.accomplishments||[]),newAccomp.trim()]);setNewAccomp("");}}} placeholder="e.g. 2024 Olympic Gold Medal" style={{ flex:1, padding:"12px 14px", background:"rgba(255,255,255,0.035)", border:`1px solid ${C.border}`, borderRadius:10, color:C.text, fontSize:14, fontFamily:"inherit", outline:"none" }} />
+                          <button onClick={() => {if(newAccomp.trim()){upProf("accomplishments",[...(profile.accomplishments||[]),newAccomp.trim()]);setNewAccomp("");}}} style={{ padding:"0 20px", borderRadius:10, border:"none", background:newAccomp.trim()?"linear-gradient(135deg,#00E68A,#00B8D4)":"rgba(255,255,255,0.08)", color:newAccomp.trim()?"#06080D":"rgba(255,255,255,0.3)", fontSize:14, fontWeight:700, cursor:newAccomp.trim()?"pointer":"default", fontFamily:"inherit" }}>+ Add</button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {ob.goals && <div style={{ marginBottom:16 }}><div style={{ fontSize:12, color:C.muted, fontWeight:700, textTransform:"uppercase", letterSpacing:".06em", marginBottom:6 }}>Goal</div><p style={{ fontSize:15, lineHeight:1.6 }}>{ob.goals}</p></div>}
+                  <div style={{ marginBottom:16 }}><div style={{ fontSize:12, color:C.muted, fontWeight:700, textTransform:"uppercase", letterSpacing:".06em", marginBottom:8 }}>Values</div><div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>{ob.values.map(v => <Badge key={v}>{v}</Badge>)}</div></div>
+                  <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:10 }}>
+                    <div style={{ background:"rgba(255,255,255,0.03)", borderRadius:10, padding:14, textAlign:"center" }}><div style={{ fontSize:24, fontWeight:800, color:C.accent }}>{swiped.liked.length}</div><div style={{ fontSize:12, color:C.muted }}>Connections</div></div>
+                    <div style={{ background:"rgba(255,255,255,0.03)", borderRadius:10, padding:14, textAlign:"center" }}><div style={{ fontSize:24, fontWeight:800, color:C.warn }}>{saved.length}</div><div style={{ fontSize:12, color:C.muted }}>Saved</div></div>
+                    <div style={{ background:"rgba(255,255,255,0.03)", borderRadius:10, padding:14, textAlign:"center" }}><div style={{ fontSize:24, fontWeight:800, color:C.secondary }}>{Object.keys(chats).length}</div><div style={{ fontSize:12, color:C.muted }}>Chats</div></div>
+                  </div>
+                </div>
+
+                <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:16, padding:20, width:"100%", marginTop:14 }}>
+                  <div style={{ fontSize:12, color:C.muted, fontWeight:700, textTransform:"uppercase", letterSpacing:".06em", marginBottom:12 }}>Security</div>
+                  <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:10 }}><span style={{ color:C.accent }}>🔒</span><span style={{ fontSize:14 }}>Password secured with SHA-256 hashing</span></div>
+                  <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:10 }}><span style={{ color:C.accent }}>🛡️</span><span style={{ fontSize:14 }}>Credentials in {bioType === "Face ID" ? "iOS Keychain" : "Android Keystore"}</span></div>
+                  <div style={{ display:"flex", alignItems:"center", gap:10 }}><span style={{ color:C.accent }}>✓</span><span style={{ fontSize:14 }}>{bioType} / Passkey authentication enabled</span></div>
+                </div>
+
+                <button onClick={doLogout} style={{ width:"100%", marginTop:14, padding:"14px", border:`1px solid ${C.danger}40`, borderRadius:12, background:`${C.danger}08`, color:C.danger, fontWeight:700, fontSize:16, cursor:"pointer", fontFamily:"inherit" }}>Sign Out</button>
+              </div>
+            )}
+
+          </div>
+
+          {/* Bottom Nav */}
+          {!chatWith && <nav style={{ display: "flex", justifyContent: "space-around", alignItems: "center", padding: "10px 0 20px", borderTop: `1px solid ${C.border}`, background: "rgba(6,8,13,0.94)", backdropFilter: "blur(20px)", flexShrink: 0, position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 100 }}>
+            {[{ id: "discover", icon: "◎", label: "Discover" }, { id: "matches", icon: "🤝", label: "Matches" }, { id: "messages", icon: "💬", label: "Messages" }, { id: "profile", icon: "👤", label: "Profile" }].map(t => {
+              const active = tab === t.id;
+              const unread = t.id === "messages" && Object.keys(chats).length > 0;
+              return (
+                <button key={t.id} onClick={() => { setTab(t.id); setSelected(null); setChatWith(null); }} style={{ background: "none", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 4, padding: "6px 16px", fontFamily: "inherit", position: "relative" }}>
+                  <span style={{ fontSize: 20, opacity: active ? 1 : 0.35 }}>{t.icon}</span>
+                  <span style={{ fontSize: 11, fontWeight: active ? 700 : 500, color: active ? C.accent : C.muted }}>{t.label}</span>
+                  {active && <div style={{ position: "absolute", top: -8, width: 20, height: 3, borderRadius: 2, background: C.accent }} />}
+                  {unread && <div style={{ position: "absolute", top: 0, right: 8, width: 7, height: 7, borderRadius: "50%", background: C.danger, animation: "pulse 2s infinite" }} />}
+                </button>
+              );
+            })}
+          </nav>}
+        </div>
+      )}
+
+      {/* Watermark logos */}
+      <img src={LOGO} alt="" className="watermark watermark-center" />
+      {screen === "main" && <img src={LOGO} alt="" className="watermark watermark-br" />}
+
+      {/* ═══ CHATBOT FAB + DRAWER ═══ */}
+      {screen !== "splash" && <>
+        {!botOpen && <button onClick={() => setBotOpen(true)} style={{ position: "fixed", bottom: screen === "main" ? 76 : 20, right: 16, width: 56, height: 56, borderRadius: "50%", border: "none", background: "linear-gradient(135deg,#00E68A,#00B8D4)", color: "#06080D", fontSize: 22, cursor: "pointer", zIndex: 200, boxShadow: "0 4px 20px rgba(0,230,138,0.3)", display: "flex", alignItems: "center", justifyContent: "center", animation: "scaleIn 0.3s ease", overflow: "hidden" }}><svg width="30" height="30" viewBox="0 0 40 40"><circle cx="20" cy="20" r="18" fill="#06080D" opacity="0.3"/><path d="M12 22c0-4.4 3.6-8 8-8s8 3.6 8 8" stroke="#06080D" strokeWidth="2.5" fill="none" strokeLinecap="round"/><circle cx="15" cy="18" r="2" fill="#06080D"/><circle cx="25" cy="18" r="2" fill="#06080D"/><path d="M10 14l4-4h12l4 4" stroke="#06080D" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"/></svg></button>}
+        {botOpen && (
+          <div style={{ position: "fixed", bottom: 0, right: 0, width: "100%", maxWidth: 420, height: "70vh", maxHeight: 540, background: "rgba(10,14,22,0.98)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "18px 18px 0 0", zIndex: 300, display: "flex", flexDirection: "column", animation: "fadeUp 0.3s ease", backdropFilter: "blur(20px)" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 18px", borderBottom: "1px solid rgba(255,255,255,0.06)", flexShrink: 0 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}><div style={{ width: 34, height: 34, borderRadius: "50%", background: "linear-gradient(135deg,#00E68A,#00B8D4)", display: "flex", alignItems: "center", justifyContent: "center" }}><svg width="18" height="18" viewBox="0 0 40 40"><circle cx="20" cy="20" r="18" fill="#06080D" opacity="0.3"/><path d="M12 22c0-4.4 3.6-8 8-8s8 3.6 8 8" stroke="#06080D" strokeWidth="2.5" fill="none" strokeLinecap="round"/><circle cx="15" cy="18" r="2" fill="#06080D"/><circle cx="25" cy="18" r="2" fill="#06080D"/><path d="M10 14l4-4h12l4 4" stroke="#06080D" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"/></svg></div><div><div style={{ fontWeight: 700, fontSize: 15 }}>Nexis</div><div style={{ fontSize: 11, color: "#00E68A" }}>● Online</div></div></div>
+              <button onClick={() => setBotOpen(false)} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.4)", fontSize: 22, cursor: "pointer" }}>✕</button>
+            </div>
+            <div style={{ flex: 1, overflowY: "auto", padding: "12px 16px", display: "flex", flexDirection: "column", gap: 8 }}>
+              {botMsgs.map((m, i) => (
+                <div key={i} style={{ alignSelf: m.from === "user" ? "flex-end" : "flex-start", maxWidth: "82%", padding: "11px 15px", borderRadius: m.from === "user" ? "14px 14px 4px 14px" : "14px 14px 14px 4px", background: m.from === "user" ? "linear-gradient(135deg,#00E68A,#00B8D4)" : "rgba(255,255,255,0.06)", color: m.from === "user" ? "#06080D" : "#E8E8EC", fontSize: 14, lineHeight: 1.5, fontWeight: m.from === "user" ? 600 : 400, whiteSpace: "pre-line", animation: "scaleIn 0.2s ease" }}>{m.text}</div>
+              ))}
+              <div ref={botEndRef} />
+            </div>
+            <div style={{ padding: "10px 14px 16px", borderTop: "1px solid rgba(255,255,255,0.06)", display: "flex", gap: 8, flexShrink: 0 }}>
+              <input value={botInput} onChange={e => setBotInput(e.target.value)} onKeyDown={e => e.key === "Enter" && sendBot()} placeholder="Ask Nexis..." style={{ flex: 1, padding: "12px 16px", borderRadius: 22, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "#E8E8EC", fontSize: 14, fontFamily: "inherit", outline: "none" }} />
+              <button onClick={sendBot} style={{ width: 42, height: 42, borderRadius: "50%", border: "none", background: botInput.trim() ? "linear-gradient(135deg,#00E68A,#00B8D4)" : "rgba(255,255,255,0.06)", color: botInput.trim() ? "#06080D" : "rgba(255,255,255,0.25)", fontSize: 16, cursor: "pointer" }}>→</button>
+            </div>
+          </div>
+        )}
+      </>}
+    </div>
+  );
+}
+
+ReactDOM.render(React.createElement(AthLink), document.getElementById('root'));
+</script>
+</body>
+</html>
